@@ -131,7 +131,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 				fmt.Print("\r")
 				return
 			default:
-				fmt.Printf("\rGenerating video... %s", spinnerChars[i%len(spinnerChars)])
+				fmt.Printf("\rGenerating video...:   %s", spinnerChars[i%len(spinnerChars)])
 				i++
 				time.Sleep(200 * time.Millisecond)
 			}
