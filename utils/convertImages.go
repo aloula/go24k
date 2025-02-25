@@ -15,13 +15,21 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-// ConvertImages processes each .jpg file in the working directory, applies scaling,
-// compositing on a black background, and saves the output to the "converted" folder.
-func ConvertImages() error {
-	// Create "converted" directory.
-	if err := os.MkdirAll("converted", os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory: %v", err)
+
+ // ConvertImages processes each .jpg file in the working directory, applies scaling,
+ // compositing on a black background, and saves the output to the "converted" folder.
+ func ConvertImages() error {
+	// Check if "converted" directory already exists.
+	if _, err := os.Stat("converted"); err == nil {
+		fmt.Println("The 'converted' folder already exists, skipping image conversion...")
+		return nil // Exit the function without an error.
 	}
+
+ 	// Create "converted" directory.
+ 	if err := os.MkdirAll("converted", os.ModePerm); err != nil {
+ 		return fmt.Errorf("failed to create directory: %v", err)
+	}		
+
 
 	// Process each .jpg file.
 	files, err := filepath.Glob("*.jpg")
