@@ -11,11 +11,19 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Build for Windows
-echo "Building for Windows..."
-GOOS=windows GOARCH=amd64 go build -o builds/windows/go24k.exe main.go
+# Build for Windows (amd64)
+echo "Building for Windows (amd64)..."
+GOOS=windows GOARCH=amd64 go build -o builds/windows/amd64/go24k.exe main.go
 if [ $? -ne 0 ]; then
-    echo "Failed to build for Windows"
+    echo "Failed to build for Windows (amd64)"
+    exit 1
+fi
+
+# Build for Windows (arm64)
+echo "Building for Windows (arm64)..."
+GOOS=windows GOARCH=arm64 go build -o builds/windows/arm64/go24k.exe main.go
+if [ $? -ne 0 ]; then
+    echo "Failed to build for Windows (arm64)"
     exit 1
 fi
 
