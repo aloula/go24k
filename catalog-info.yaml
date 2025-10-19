@@ -1,0 +1,23 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: go24k
+  title: Go24k
+  description: A Go application for processing and generating content
+  annotations:
+    github.com/project-slug: aloula/go24k
+    backstage.io/techdocs-ref: dir:.
+    backstage.io/source-location: url:https://github.com/aloula/go24k
+  tags:
+    - go
+    - cli
+    - video-processing
+  links:
+    - url: https://github.com/aloula/go24k
+      title: Repository
+      icon: github
+spec:
+  type: library
+  lifecycle: production
+  owner: team-default
+  system: go24k-system
