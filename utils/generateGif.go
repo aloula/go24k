@@ -629,7 +629,7 @@ func GenerateWhatsAppSticker(totalTime float64, fps int) error {
 
 	outputFile := "go24k_sticker.webp"
 
-	// Get list of images and build input arguments for FFmpeg
+	// Get list of images to verify they exist
 	files, err := filepath.Glob("gif_converted/*.jpg")
 	if err != nil {
 		return fmt.Errorf("error listing converted images: %v", err)
@@ -639,52 +639,32 @@ func GenerateWhatsAppSticker(totalTime float64, fps int) error {
 		return fmt.Errorf("no converted images found in gif_converted directory")
 	}
 
-	// Create input list for FFmpeg concat demuxer
-	listFile := "gif_input_list.txt"
-	file, err := os.Create(listFile)
-	if err != nil {
-		return fmt.Errorf("error creating input list: %v", err)
-	}
+	// Calculate frame rate from duration
+	frameRate := float64(imageCount) / totalTime
+	fmt.Printf("Calculated frame rate: %.3f fps\n", frameRate)
 
-	for _, imgFile := range files {
-		fmt.Fprintf(file, "file '%s'\n", imgFile)
-		fmt.Fprintf(file, "duration %.3f\n", perFrameDuration)
-	}
-	// Add last image again to ensure proper timing
-	if len(files) > 0 {
-		fmt.Fprintf(file, "file '%s'\n", files[len(files)-1])
-	}
-	file.Close()
-
-	// Create WebP with optimal settings for WhatsApp
+	// Create animated WebP directly for better WhatsApp compatibility
+	fmt.Println("Creating animated WebP...")
 	cmd := exec.Command("ffmpeg",
-		"-y", // Overwrite output file
-		"-f", "concat",
-		"-safe", "0",
-		"-i", listFile,
-		"-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000", // Ensure 512x512 with transparent padding
+		"-y",
+		"-framerate", fmt.Sprintf("%.3f", frameRate),
+		"-pattern_type", "glob",
+		"-i", "gif_converted/*.jpg",
 		"-c:v", "libwebp",
-		"-loop", "0", // Infinite loop
-		"-quality", "75", // Good quality/size balance
-		"-preset", "default",
-		"-compression_level", "6", // Max compression
-		"-method", "6", // Best compression method
+		"-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
+		"-quality", "50",
+		"-loop", "0",
+		"-an",
 		"-t", fmt.Sprintf("%.3f", totalTime),
 		outputFile,
 	)
 
 	fmt.Println("Running FFmpeg to create WhatsApp sticker...")
 	output, err := cmd.CombinedOutput()
-
-	// Clean up temporary file
-	os.Remove(listFile)
-
 	if err != nil {
 		fmt.Printf("FFmpeg output: %s\n", string(output))
 		return fmt.Errorf("error creating WebP sticker: %v", err)
-	}
-
-	// Check file size
+	} // Check file size
 	if info, err := os.Stat(outputFile); err == nil {
 		sizeKB := info.Size() / 1024
 		fmt.Printf("Sticker created: %s (%.1f KB)\n", outputFile, float64(sizeKB))
