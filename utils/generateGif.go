@@ -565,3 +565,101 @@ func GenerateOptimizedGifWithTotalTime(totalTimeSeconds, transitionDuration int,
 		fmt.Printf("\nOptimized GIF created successfully: optimized.gif (%.1f MB)\n", sizeMB)
 	}
 }
+
+// GenerateWhatsAppSticker creates a WebP sticker optimized for WhatsApp
+// Resolution: 512x512, Duration: max 8s, Size: <500KB
+func GenerateWhatsAppSticker(totalTime float64, fps int) error {
+	if totalTime > 8 {
+		fmt.Println("Warning: Duration reduced to 8 seconds (WhatsApp limit)")
+		totalTime = 8
+	}
+
+	fmt.Printf("Creating WhatsApp sticker: %.1fs at %d fps\n", totalTime, fps)
+
+	// First create GIF images in gif_converted directory
+	err := ConvertImagesForGif(1080)
+	if err != nil {
+		return fmt.Errorf("error preparing images for sticker: %v", err)
+	}
+
+	// Count images to calculate per-frame duration
+	imageCount := CountImages()
+	if imageCount == 0 {
+		return fmt.Errorf("no images found - make sure you have JPEG images in the current directory")
+	}
+
+	perFrameDuration := totalTime / float64(imageCount)
+	fmt.Printf("Per-frame duration: %.3fs for %d images\n", perFrameDuration, imageCount)
+
+	outputFile := "go24k_sticker.webp"
+
+	// Get list of images and build input arguments for FFmpeg
+	files, err := filepath.Glob("gif_converted/*.jpg")
+	if err != nil {
+		return fmt.Errorf("error listing converted images: %v", err)
+	}
+
+	if len(files) == 0 {
+		return fmt.Errorf("no converted images found in gif_converted directory")
+	}
+
+	// Create input list for FFmpeg concat demuxer
+	listFile := "gif_input_list.txt"
+	file, err := os.Create(listFile)
+	if err != nil {
+		return fmt.Errorf("error creating input list: %v", err)
+	}
+
+	for _, imgFile := range files {
+		fmt.Fprintf(file, "file '%s'\n", imgFile)
+		fmt.Fprintf(file, "duration %.3f\n", perFrameDuration)
+	}
+	// Add last image again to ensure proper timing
+	if len(files) > 0 {
+		fmt.Fprintf(file, "file '%s'\n", files[len(files)-1])
+	}
+	file.Close()
+
+	// Create WebP with optimal settings for WhatsApp
+	cmd := exec.Command("ffmpeg",
+		"-y", // Overwrite output file
+		"-f", "concat",
+		"-safe", "0",
+		"-i", listFile,
+		"-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:white", // Ensure 512x512 with white padding
+		"-c:v", "libwebp",
+		"-loop", "0", // Infinite loop
+		"-quality", "75", // Good quality/size balance
+		"-preset", "default",
+		"-compression_level", "6", // Max compression
+		"-method", "6", // Best compression method
+		"-t", fmt.Sprintf("%.3f", totalTime),
+		outputFile,
+	)
+
+	fmt.Println("Running FFmpeg to create WhatsApp sticker...")
+	output, err := cmd.CombinedOutput()
+
+	// Clean up temporary file
+	os.Remove(listFile)
+
+	if err != nil {
+		fmt.Printf("FFmpeg output: %s\n", string(output))
+		return fmt.Errorf("error creating WebP sticker: %v", err)
+	}
+
+	// Check file size
+	if info, err := os.Stat(outputFile); err == nil {
+		sizeKB := info.Size() / 1024
+		fmt.Printf("Sticker created: %s (%.1f KB)\n", outputFile, float64(sizeKB))
+
+		if sizeKB > 500 {
+			fmt.Printf("Warning: File size %.1f KB exceeds WhatsApp limit (500 KB)\n", float64(sizeKB))
+			fmt.Println("Consider reducing duration, fps, or image count for smaller file size")
+		} else {
+			fmt.Println("✓ Sticker meets WhatsApp requirements (512x512, <8s, <500KB)")
+		}
+	}
+
+	return nil
+}

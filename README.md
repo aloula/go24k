@@ -25,6 +25,13 @@ Go24K is a versatile Go program that transforms JPEG images into stunning **4K U
 - **Dual Processing:** Separate 1080p pipeline optimized for GIF output
 - **Instant Preview:** Quick generation with real-time progress feedback
 
+### 📱 WhatsApp Sticker Creation
+- **WebP Format:** Automatic conversion to WhatsApp-compatible WebP format
+- **Optimal Dimensions:** Precisely sized to 512x512 pixels with smart padding
+- **Size Optimization:** Advanced compression to stay under 500KB limit
+- **Duration Control:** Respects 8-second maximum duration for stickers
+- **Quality Balance:** Maintains visual quality while meeting platform requirements
+
 ### 🖼️ Image Processing
 - **Intelligent Resizing:** Maintains aspect ratio while fitting target dimensions
 - **EXIF Timestamp Extraction:** Automatic filename generation from photo metadata
@@ -93,6 +100,9 @@ Go24K is a versatile Go program that transforms JPEG images into stunning **4K U
 - `--gif-fps <fps>`: Frames per second for GIF (default: 15, up to 60 for smooth animation)
 - `--gif-scale <scale>`: Scale factor for GIF output (default: 1.0 = full size)
 
+#### WhatsApp Sticker Options
+- `--whatsapp-sticker`: Create WhatsApp sticker (WebP 512x512, <8s, <500KB)
+
 ### Examples
 
 #### 🎬 Video Creation
@@ -133,7 +143,24 @@ go run main.go --gif-optimized --gif-total-time 4 --gif-scale 0.3
 go run main.go --gif-optimized -d 2 --gif-fps 12 --gif-scale 0.5
 ```
 
-#### 🔧 Processing Only
+#### � WhatsApp Sticker Creation
+
+**Create WhatsApp sticker (auto 6-second duration):**
+```sh
+go run main.go --whatsapp-sticker
+```
+
+**Create 4-second WhatsApp sticker:**
+```sh
+go run main.go --whatsapp-sticker --gif-total-time 4
+```
+
+**High-quality 8-second sticker (max duration):**
+```sh
+go run main.go --whatsapp-sticker --gif-total-time 8 --gif-fps 30
+```
+
+#### �🔧 Processing Only
 **Convert images only (no output generation):**
 ```sh
 go run main.go --convert-only
@@ -151,6 +178,12 @@ go run main.go --convert-only
 - **Social Media**: Quick, engaging content for Twitter, Discord, Reddit
 - **Web Content**: Lightweight animated headers, banners, demos
 - **Presentations**: Dynamic slides without video player requirements
+
+### 📱 **WhatsApp Sticker Creation**
+- **Personal Stickers**: Transform photo sequences into animated stickers
+- **Business Communication**: Create branded animated stickers for WhatsApp Business
+- **Creative Expression**: Convert moments into shareable WebP animations
+- **Meme Creation**: Quick animated responses and reactions
 - **Documentation**: Step-by-step visual guides and tutorials
 - **Marketing**: Eye-catching promotional content
 

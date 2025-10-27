@@ -22,6 +22,9 @@ func main() {
 	gifScale := flag.Float64("gif-scale", 1.0, "Scale factor for GIF output (1.0 = full converted size)")
 	gifTotalTime := flag.Int("gif-total-time", 0, "Total duration of GIF in seconds (overrides per-image duration)")
 
+	// WhatsApp sticker flag
+	whatsappSticker := flag.Bool("whatsapp-sticker", false, "Create WhatsApp sticker (WebP 512x512, <8s, <500KB)")
+
 	flag.Parse()
 
 	startTime := time.Now()
@@ -40,7 +43,14 @@ func main() {
 			fmt.Println("Using optimized duration for GIF: 1 second per image")
 		}
 
-		if *optimizedGif {
+		if *whatsappSticker {
+			// Create WhatsApp sticker with optimal settings
+			stickerDuration := float64(*gifTotalTime)
+			if stickerDuration == 0 {
+				stickerDuration = 6.0 // Default to 6 seconds (safe for WhatsApp 8s limit)
+			}
+			utils.GenerateWhatsAppSticker(stickerDuration, *gifFps)
+		} else if *optimizedGif {
 			// Create optimized GIF with palette
 			if *gifTotalTime > 0 {
 				utils.GenerateOptimizedGifWithTotalTime(*gifTotalTime, *transition, *gifFps, *gifScale)
