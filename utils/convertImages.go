@@ -15,21 +15,19 @@ import (
 	"github.com/schollz/progressbar/v3"
 )
 
-
- // ConvertImages processes each .jpg file in the working directory, applies scaling,
- // compositing on a black background, and saves the output to the "converted" folder.
- func ConvertImages() error {
-	// Check if "converted" directory already exists.
-	if _, err := os.Stat("converted"); err == nil {
-		fmt.Println("The 'converted' folder already exists, skipping image conversion...")
+// ConvertImages processes each .jpg file in the working directory, applies scaling,
+// compositing on a black background, and saves the output to the "uhd_converted" folder.
+func ConvertImages() error {
+	// Check if "uhd_converted" directory already exists.
+	if _, err := os.Stat("uhd_converted"); err == nil {
+		fmt.Println("The 'uhd_converted' folder already exists, skipping image conversion...")
 		return nil // Exit the function without an error.
 	}
 
- 	// Create "converted" directory.
- 	if err := os.MkdirAll("converted", os.ModePerm); err != nil {
- 		return fmt.Errorf("failed to create directory: %v", err)
-	}		
-
+	// Create "uhd_converted" directory.
+	if err := os.MkdirAll("uhd_converted", os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create directory: %v", err)
+	}
 
 	// Process each .jpg file.
 	files, err := filepath.Glob("*.jpg")
@@ -88,7 +86,7 @@ import (
 		}
 
 		// Save converted image.
-		filenameConverted := filepath.Join("converted", fmt.Sprintf("%s_uhd.jpg", timestamp))
+		filenameConverted := filepath.Join("uhd_converted", fmt.Sprintf("%s_uhd.jpg", timestamp))
 		if err := imaging.Save(imgConverted, filenameConverted); err != nil {
 			return fmt.Errorf("failed to save converted image %s: %v", filenameConverted, err)
 		}

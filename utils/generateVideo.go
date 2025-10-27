@@ -14,10 +14,10 @@ import (
 // audio fades, and optionally a Ken Burns effect applied to each image.
 // If applyKenBurns is false, the images remain static.
 func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
-	// Find all converted .jpg files (3840x2160).
-	files, err := filepath.Glob("converted/*.jpg")
+	// Find all UHD converted .jpg files (3840x2160).
+	files, err := filepath.Glob("uhd_converted/*.jpg")
 	if err != nil {
-		log.Fatalf("Failed to list converted .jpg files: %v", err)
+		log.Fatalf("Failed to list uhd_converted .jpg files: %v", err)
 	}
 
 	index := 0
