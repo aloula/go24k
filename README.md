@@ -26,12 +26,13 @@ Go24K is a versatile Go program that transforms JPEG images into stunning **4K U
 - **Instant Preview:** Quick generation with real-time progress feedback
 
 ### 📱 WhatsApp Sticker Creation
-- **WebP Format:** Automatic conversion to WhatsApp-compatible WebP format
+- **WebP Format:** Uses specialized `gif2webp` tool for maximum WhatsApp compatibility
 - **Optimal Dimensions:** Precisely sized to 512x512 pixels with transparent padding
 - **Transparent Background:** Clean transparent background for professional stickers
-- **Size Optimization:** Advanced compression to stay under 500KB limit
+- **Animation Support:** Guaranteed animated stickers that work in WhatsApp conversations
+- **Size Optimization:** Advanced compression to stay under 500KB limit (typically ~300KB)
 - **Duration Control:** Respects 8-second maximum duration for stickers
-- **Quality Balance:** Maintains visual quality while meeting platform requirements
+- **Frame Rate Optimization:** 6-10 fps specifically tuned for WhatsApp performance
 
 ### 🖼️ Image Processing
 - **Intelligent Resizing:** Maintains aspect ratio while fitting target dimensions
@@ -42,32 +43,58 @@ Go24K is a versatile Go program that transforms JPEG images into stunning **4K U
 
 ## Requirements
 
+### Core Dependencies
 - Go 1.16 or later
 - The following Go packages:
   - `github.com/disintegration/imaging`
   - `github.com/rwcarlsen/goexif/exif`
   - `github.com/schollz/progressbar/v3`
-- FFMpeg
+
+### System Requirements
+- **FFmpeg**: Required for video and GIF processing
+- **WebP tools** (for WhatsApp stickers): Install with `sudo apt install webp` (Ubuntu/Debian) or equivalent
+
+### Platform Support
+- Linux (tested on ARM64 and x86_64)
+- macOS (Intel and Apple Silicon)
+- Windows (x86_64 and ARM64)
 
 ## Installation
 
-1. Install FFmpeg: https://ffmpeg.org/download.html
+### System Dependencies
 
-- Optional steps, only for those who wants to code:
-2. Clone the repository:
+1. **Install FFmpeg**: https://ffmpeg.org/download.html
 
-    ```sh
-    git clone https://github.com/yourusername/go24k.git
-    cd go24k
-    ```
+2. **Install WebP tools** (required for WhatsApp stickers):
+   ```sh
+   # Ubuntu/Debian
+   sudo apt install webp
+   
+   # macOS with Homebrew
+   brew install webp
+   
+   # Windows: Download from https://developers.google.com/speed/webp/download
+   ```
 
-2. Install the required Go packages:
+### Optional: Development Setup
 
-    ```sh
-    go get github.com/disintegration/imaging
-    go get github.com/rwcarlsen/goexif/exif
-    go get github.com/schollz/progressbar/v3
-    ```
+For those who want to build from source:
+
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/yourusername/go24k.git
+   cd go24k
+   ```
+
+2. Install Go dependencies:
+   ```sh
+   go mod tidy
+   ```
+
+3. Build the executable:
+   ```sh
+   go build -o go24k
+   ```
 
 ## Usage
 
@@ -144,27 +171,57 @@ go run main.go --gif-optimized --gif-total-time 4 --gif-scale 0.3
 go run main.go --gif-optimized -d 2 --gif-fps 12 --gif-scale 0.5
 ```
 
-#### � WhatsApp Sticker Creation
+#### 📱 WhatsApp Sticker Creation
 
-**Create WhatsApp sticker (auto 6-second duration):**
+**Create animated WhatsApp sticker (default 6-second duration):**
 ```sh
-go run main.go --whatsapp-sticker
+./go24k --whatsapp-sticker
 ```
 
-**Create 4-second WhatsApp sticker:**
+**Create 4-second animated sticker:**
 ```sh
-go run main.go --whatsapp-sticker --gif-total-time 4
+./go24k --whatsapp-sticker --gif-total-time 4
 ```
 
-**High-quality 8-second sticker (max duration):**
+**Maximum 8-second animated sticker:**
 ```sh
-go run main.go --whatsapp-sticker --gif-total-time 8 --gif-fps 30
+./go24k --whatsapp-sticker --gif-total-time 8
 ```
 
-#### �🔧 Processing Only
+> **Note**: WhatsApp stickers use specialized `gif2webp` conversion for guaranteed animation compatibility. The tool automatically optimizes frame rate (6-10 fps) and file size (~300KB) for WhatsApp requirements.
+
+####  Processing Only
 **Convert images only (no output generation):**
 ```sh
-go run main.go --convert-only
+./go24k --convert-only
+```
+
+## Enhanced User Interface
+
+Go24K features a modern, informative interface with real-time progress tracking and detailed statistics:
+
+### 🎨 Visual Improvements
+- **Colorful Progress Indicators**: Emoji-enhanced progress bars with clear section headers
+- **Real-time File Information**: Shows current file dimensions and processing status
+- **Smart Processing Stats**: Displays speed (images/sec), file sizes, and compression ratios
+- **Completion Feedback**: Clear success messages with checkmark confirmations
+
+### 📊 Example Output
+```
+🎬 Starting UHD Video Conversion
+📊 Found 12 images to process
+🎯 Target: 4K UHD (3840x2160) with black padding
+💾 Output: uhd_converted/ directory
+
+🔄 Converting Kart-01.jpg (4032x4032) 8% |███████████████ (12/12, 2 it/s)
+✅ UHD conversion completed!
+
+📈 Conversion Statistics:
+   ⏱️  Processing time: 6.5 seconds
+   🚀 Average speed: 1.9 images/sec
+   📁 Original size: 53.7 MB
+   📁 UHD size: 21.1 MB
+   📊 Size ratio: 0.4x
 ```
 
 ## Use Cases
@@ -193,6 +250,43 @@ go run main.go --convert-only
 - **Time Control**: Precise total duration control for GIFs
 - **Batch Efficiency**: Process dozens of images in seconds
 - **Format Flexibility**: Choose the perfect output for your needs
+
+## Troubleshooting
+
+### WhatsApp Sticker Issues
+
+**Sticker appears static in WhatsApp:**
+- Ensure `webp` tools are installed: `sudo apt install webp`
+- Use shorter durations (3-4 seconds work best)
+- Check file size is under 500KB (automatically optimized)
+
+**File size too large:**
+- Reduce duration: `--gif-total-time 3`
+- Use fewer source images
+- The tool automatically optimizes to ~300KB
+
+### General Issues
+
+**"No .jpg files found" error:**
+- Ensure JPEG images are in the current directory
+- Check file extensions (must be `.jpg`, not `.jpeg`)
+- Verify file permissions
+
+**FFmpeg not found:**
+- Install FFmpeg: https://ffmpeg.org/download.html
+- Ensure it's in your system PATH
+- Test with: `ffmpeg -version`
+
+**Slow processing:**
+- Reduce image count for faster processing
+- Use SSD storage for better I/O performance
+- Check available RAM (processing is memory-intensive)
+
+### Performance Tips
+
+- **For GIFs**: Use `--gif-total-time` instead of per-image duration
+- **For Videos**: Use `--static` flag to disable Ken Burns effects for faster processing
+- **For Stickers**: Keep duration under 5 seconds for best results
 
 ## Building
 
@@ -226,9 +320,35 @@ your-project/
 │   └── 000_*.jpg
 ├── video.mp4              # Generated UHD video (output)
 ├── animated.gif           # Regular animated GIF (output)
-└── optimized.gif          # Optimized animated GIF (output)
+├── optimized.gif          # Optimized animated GIF (output)
+└── go24k_sticker.webp     # WhatsApp animated sticker (output)
 ```
+
+## Downloads & Releases
+
+Pre-built binaries are available for multiple platforms:
+
+- **Linux** (x86_64, ARM64)
+- **Windows** (x86_64, ARM64)  
+- **macOS** (Intel, Apple Silicon)
+
+Download the latest release from the [releases page](https://github.com/yourusername/go24k/releases).
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+### Development
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License. See the LICENSE file for details.
+
+---
+
+**⭐ Star this repository if you find it useful!**
