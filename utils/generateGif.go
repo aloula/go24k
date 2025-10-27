@@ -31,7 +31,7 @@ func CountImages() int {
 func ConvertImagesForGif(maxHeight int) error {
 	// Check if "gif_converted" directory already exists
 	if _, err := os.Stat("gif_converted"); err == nil {
-		fmt.Println("The 'gif_converted' folder already exists, skipping image conversion...")
+		fmt.Println("📁 The 'gif_converted' folder already exists, skipping image conversion...")
 		return nil
 	}
 
@@ -47,35 +47,53 @@ func ConvertImagesForGif(maxHeight int) error {
 	}
 
 	if len(files) == 0 {
-		return fmt.Errorf("no .jpg files found in current directory")
+		return fmt.Errorf("❌ No .jpg files found in current directory")
 	}
 
 	fileCount := len(files)
 
-	// Create progress bar
+	// Display conversion info
+	fmt.Printf("\n🎞️ Starting GIF Conversion\n")
+	fmt.Printf("📊 Found %d images to process\n", fileCount)
+	fmt.Printf("🎯 Target: Max %dp height for optimal GIF performance\n", maxHeight)
+	fmt.Printf("💾 Output: gif_converted/ directory\n\n")
+
+	// Create enhanced progress bar
 	var bar *progressbar.ProgressBar
 	if runtime.GOOS == "windows" {
 		bar = progressbar.NewOptions(fileCount,
-			progressbar.OptionSetDescription("Converting for GIF: "),
+			progressbar.OptionSetDescription("🎞️ Optimizing for GIF"),
 			progressbar.OptionShowCount(),
-			progressbar.OptionSetWidth(30),
+			progressbar.OptionShowIts(),
+			progressbar.OptionSetWidth(40),
+			progressbar.OptionSetRenderBlankState(true),
 			progressbar.OptionOnCompletion(func() {
-				fmt.Println()
+				fmt.Printf("\n✅ GIF optimization completed!\n\n")
 			}),
 		)
 	} else {
 		bar = progressbar.NewOptions(fileCount,
-			progressbar.OptionSetDescription("Converting for GIF: "),
+			progressbar.OptionSetDescription("🎞️ Optimizing for GIF"),
 			progressbar.OptionShowCount(),
-			progressbar.OptionSetWidth(30),
+			progressbar.OptionShowIts(),
+			progressbar.OptionSetWidth(40),
 			progressbar.OptionSpinnerType(14),
+			progressbar.OptionSetRenderBlankState(true),
 			progressbar.OptionOnCompletion(func() {
-				fmt.Println()
+				fmt.Printf("\n✅ GIF optimization completed!\n\n")
 			}),
 		)
 	}
 
+	startTime := time.Now()
+	var totalOriginalSize, totalConvertedSize int64
+
 	for i, file := range files {
+		// Get original file size
+		if info, err := os.Stat(file); err == nil {
+			totalOriginalSize += info.Size()
+		}
+
 		// Open image
 		img, err := imaging.Open(file, imaging.AutoOrientation(true))
 		if err != nil {
@@ -126,8 +144,26 @@ func ConvertImagesForGif(maxHeight int) error {
 			return fmt.Errorf("failed to save converted image %s: %v", filenameConverted, err)
 		}
 
+		// Get converted file size
+		if info, err := os.Stat(filenameConverted); err == nil {
+			totalConvertedSize += info.Size()
+		}
+
+		// Update progress with current file info
+		bar.Describe(fmt.Sprintf("🎞️ Converting %s (%dx%d→%dx%d)", filepath.Base(file), originalWidth, originalHeight, newWidth, newHeight))
 		bar.Add(1)
 	}
+
+	// Display final statistics
+	elapsed := time.Since(startTime)
+	avgSpeed := float64(fileCount) / elapsed.Seconds()
+
+	fmt.Printf("📈 GIF Conversion Statistics:\n")
+	fmt.Printf("   ⏱️  Processing time: %.1f seconds\n", elapsed.Seconds())
+	fmt.Printf("   🚀 Average speed: %.1f images/sec\n", avgSpeed)
+	fmt.Printf("   📁 Original size: %.1f MB\n", float64(totalOriginalSize)/(1024*1024))
+	fmt.Printf("   📁 Optimized size: %.1f MB\n", float64(totalConvertedSize)/(1024*1024))
+	fmt.Printf("   📊 Size ratio: %.1fx\n", float64(totalConvertedSize)/float64(totalOriginalSize))
 
 	return nil
 }

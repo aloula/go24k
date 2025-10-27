@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/rwcarlsen/goexif/exif"
@@ -20,7 +21,7 @@ import (
 func ConvertImages() error {
 	// Check if "uhd_converted" directory already exists.
 	if _, err := os.Stat("uhd_converted"); err == nil {
-		fmt.Println("The 'uhd_converted' folder already exists, skipping image conversion...")
+		fmt.Println("📁 The 'uhd_converted' folder already exists, skipping image conversion...")
 		return nil // Exit the function without an error.
 	}
 
@@ -37,36 +38,62 @@ func ConvertImages() error {
 
 	fileCount := len(files)
 
-	// On Windows, use a simpler progress bar to avoid issues.
+	if fileCount == 0 {
+		return fmt.Errorf("❌ No .jpg files found in current directory")
+	}
+
+	// Display conversion info
+	fmt.Printf("\n🎬 Starting UHD Video Conversion\n")
+	fmt.Printf("📊 Found %d images to process\n", fileCount)
+	fmt.Printf("🎯 Target: 4K UHD (3840x2160) with black padding\n")
+	fmt.Printf("💾 Output: uhd_converted/ directory\n\n")
+
+	// Create enhanced progress bar
 	var bar *progressbar.ProgressBar
 	if runtime.GOOS == "windows" {
 		bar = progressbar.NewOptions(fileCount,
-			progressbar.OptionSetDescription("Converting Pictures: "),
+			progressbar.OptionSetDescription("🔄 Converting to UHD"),
 			progressbar.OptionShowCount(),
-			progressbar.OptionSetWidth(30),
+			progressbar.OptionShowIts(),
+			progressbar.OptionSetWidth(40),
+			progressbar.OptionSetRenderBlankState(true),
 			progressbar.OptionOnCompletion(func() {
-				fmt.Println()
+				fmt.Printf("\n✅ UHD conversion completed!\n\n")
 			}),
 		)
 	} else {
-		// For non-Windows, you can add an animated spinner.
 		bar = progressbar.NewOptions(fileCount,
-			progressbar.OptionSetDescription("Converting Pictures: "),
+			progressbar.OptionSetDescription("🔄 Converting to UHD"),
 			progressbar.OptionShowCount(),
-			progressbar.OptionSetWidth(30),
+			progressbar.OptionShowIts(),
+			progressbar.OptionSetWidth(40),
 			progressbar.OptionSpinnerType(14),
+			progressbar.OptionSetRenderBlankState(true),
 			progressbar.OptionOnCompletion(func() {
-				fmt.Println()
+				fmt.Printf("\n✅ UHD conversion completed!\n\n")
 			}),
 		)
 	}
 
+	startTime := time.Now()
+	var totalOriginalSize, totalConvertedSize int64
+
 	for _, file := range files {
+		// Get original file size
+		if info, err := os.Stat(file); err == nil {
+			totalOriginalSize += info.Size()
+		}
+
 		// Open image.
 		img, err := imaging.Open(file, imaging.AutoOrientation(true))
 		if err != nil {
 			return fmt.Errorf("failed to open image %s: %v", file, err)
 		}
+
+		// Get original dimensions
+		bounds := img.Bounds()
+		originalWidth := bounds.Dx()
+		originalHeight := bounds.Dy()
 
 		// Resize and process image.
 		imgResized := imaging.Resize(img, 0, 2160, imaging.Lanczos)
@@ -91,8 +118,26 @@ func ConvertImages() error {
 			return fmt.Errorf("failed to save converted image %s: %v", filenameConverted, err)
 		}
 
+		// Get converted file size
+		if info, err := os.Stat(filenameConverted); err == nil {
+			totalConvertedSize += info.Size()
+		}
+
+		// Update progress with current file info
+		bar.Describe(fmt.Sprintf("🔄 Converting %s (%dx%d)", filepath.Base(file), originalWidth, originalHeight))
 		bar.Add(1)
 	}
+
+	// Display final statistics
+	elapsed := time.Since(startTime)
+	avgSpeed := float64(fileCount) / elapsed.Seconds()
+
+	fmt.Printf("📈 Conversion Statistics:\n")
+	fmt.Printf("   ⏱️  Processing time: %.1f seconds\n", elapsed.Seconds())
+	fmt.Printf("   🚀 Average speed: %.1f images/sec\n", avgSpeed)
+	fmt.Printf("   📁 Original size: %.1f MB\n", float64(totalOriginalSize)/(1024*1024))
+	fmt.Printf("   📁 UHD size: %.1f MB\n", float64(totalConvertedSize)/(1024*1024))
+	fmt.Printf("   📊 Size ratio: %.1fx\n", float64(totalConvertedSize)/float64(totalOriginalSize))
 
 	return nil
 }
