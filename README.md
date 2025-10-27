@@ -27,7 +27,8 @@ Go24K is a versatile Go program that transforms JPEG images into stunning **4K U
 
 ### 📱 WhatsApp Sticker Creation
 - **WebP Format:** Automatic conversion to WhatsApp-compatible WebP format
-- **Optimal Dimensions:** Precisely sized to 512x512 pixels with smart padding
+- **Optimal Dimensions:** Precisely sized to 512x512 pixels with transparent padding
+- **Transparent Background:** Clean transparent background for professional stickers
 - **Size Optimization:** Advanced compression to stay under 500KB limit
 - **Duration Control:** Respects 8-second maximum duration for stickers
 - **Quality Balance:** Maintains visual quality while meeting platform requirements
@@ -101,7 +102,7 @@ Go24K is a versatile Go program that transforms JPEG images into stunning **4K U
 - `--gif-scale <scale>`: Scale factor for GIF output (default: 1.0 = full size)
 
 #### WhatsApp Sticker Options
-- `--whatsapp-sticker`: Create WhatsApp sticker (WebP 512x512, <8s, <500KB)
+- `--whatsapp-sticker`: Create WhatsApp sticker (WebP 512x512, transparent background, <8s, <500KB)
 
 ### Examples
 

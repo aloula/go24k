@@ -23,7 +23,7 @@ func main() {
 	gifTotalTime := flag.Int("gif-total-time", 0, "Total duration of GIF in seconds (overrides per-image duration)")
 
 	// WhatsApp sticker flag
-	whatsappSticker := flag.Bool("whatsapp-sticker", false, "Create WhatsApp sticker (WebP 512x512, <8s, <500KB)")
+	whatsappSticker := flag.Bool("whatsapp-sticker", false, "Create WhatsApp sticker (WebP 512x512, transparent background, <8s, <500KB)")
 
 	flag.Parse()
 

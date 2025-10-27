@@ -626,7 +626,7 @@ func GenerateWhatsAppSticker(totalTime float64, fps int) error {
 		"-f", "concat",
 		"-safe", "0",
 		"-i", listFile,
-		"-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:white", // Ensure 512x512 with white padding
+		"-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000", // Ensure 512x512 with transparent padding
 		"-c:v", "libwebp",
 		"-loop", "0", // Infinite loop
 		"-quality", "75", // Good quality/size balance
