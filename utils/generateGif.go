@@ -643,26 +643,60 @@ func GenerateWhatsAppSticker(totalTime float64, fps int) error {
 	frameRate := float64(imageCount) / totalTime
 	fmt.Printf("Calculated frame rate: %.3f fps\n", frameRate)
 
-	// Create animated WebP directly for better WhatsApp compatibility
-	fmt.Println("Creating animated WebP...")
-	cmd := exec.Command("ffmpeg",
+	// Create animated WebP using the two-step approach for better WhatsApp compatibility
+	fmt.Println("Creating WhatsApp-compatible animated WebP...")
+
+	// Step 1: Create a high-quality GIF first
+	tempGif := "temp_whatsapp.gif"
+	fmt.Println("Step 1: Creating temporary GIF...")
+
+	// Use slower frame rate for WhatsApp compatibility (10 fps max)
+	whatsappFrameRate := frameRate
+	if whatsappFrameRate > 10 {
+		whatsappFrameRate = 10
+	}
+	if whatsappFrameRate < 6 {
+		whatsappFrameRate = 6
+	}
+
+	fmt.Printf("Using WhatsApp-optimized frame rate: %.1f fps\n", whatsappFrameRate)
+
+	gifCmd := exec.Command("ffmpeg",
 		"-y",
-		"-framerate", fmt.Sprintf("%.3f", frameRate),
+		"-framerate", fmt.Sprintf("%.1f", whatsappFrameRate),
 		"-pattern_type", "glob",
 		"-i", "gif_converted/*.jpg",
-		"-c:v", "libwebp",
 		"-vf", "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000",
-		"-quality", "50",
-		"-loop", "0",
-		"-an",
-		"-t", fmt.Sprintf("%.3f", totalTime),
-		outputFile,
+		"-r", fmt.Sprintf("%.1f", whatsappFrameRate),
+		"-t", fmt.Sprintf("%.1f", totalTime),
+		tempGif,
 	)
 
-	fmt.Println("Running FFmpeg to create WhatsApp sticker...")
-	output, err := cmd.CombinedOutput()
+	gifOutput, err := gifCmd.CombinedOutput()
 	if err != nil {
-		fmt.Printf("FFmpeg output: %s\n", string(output))
+		fmt.Printf("GIF creation output: %s\n", string(gifOutput))
+		return fmt.Errorf("error creating temporary GIF: %v", err)
+	}
+
+	// Step 2: Convert GIF to WebP using gif2webp (better WhatsApp compatibility)
+	// Step 2: Convert GIF to WebP using gif2webp (better WhatsApp compatibility)
+	fmt.Println("Step 2: Converting GIF to animated WebP...")
+	cmd := exec.Command("gif2webp",
+		"-lossy",
+		"-q", "30", // Much lower quality for smaller size
+		"-m", "6", // Best compression method
+		"-metadata", "none", // Remove metadata
+		tempGif,
+		"-o", outputFile,
+	)
+
+	fmt.Println("Running gif2webp to create WhatsApp sticker...")
+	_, err = cmd.CombinedOutput()
+
+	// Clean up temporary GIF
+	os.Remove(tempGif)
+
+	if err != nil {
 		return fmt.Errorf("error creating WebP sticker: %v", err)
 	} // Check file size
 	if info, err := os.Stat(outputFile); err == nil {
