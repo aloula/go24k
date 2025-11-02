@@ -305,6 +305,21 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 		log.Fatalf("Failed to list converted .jpg files: %v", err)
 	}
 
+	// Check if we have enough images to create a video
+	if len(files) == 0 {
+		log.Fatalf("❌ No converted images found in 'converted/' directory.\nPlease convert your images first using the image conversion feature.")
+	}
+
+	if len(files) < 2 {
+		log.Fatalf("❌ Not enough images found. Need at least 2 images to create a video with transitions.\nFound: %d image(s) in 'converted/' directory.", len(files))
+	}
+
+	fmt.Printf("✅ Found %d images ready for video generation:\n", len(files))
+	for i, file := range files {
+		fmt.Printf("  %d. %s\n", i+1, filepath.Base(file))
+	}
+	fmt.Println()
+
 	index := 0
 	inputs := []string{}
 	filterComplex := ""
@@ -470,20 +485,22 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 
 // getKenBurnsEffect generates a Ken Burns effect using a fixed zoompan expression.
 // This approach is based on the method described in the Bannerbear blog.
+// Updated with softer effects: slower zoom speed, lower max zoom, and reduced movement
 func getKenBurnsEffect(duration int) string {
 	totalFrames := duration * 30
-	offset := totalFrames * 2 // adjust offset as desired
+	offset := int(float64(totalFrames) * 1.2) // reduced offset for gentler movement
 
-	// Define nine variants based on different focal positions.
-	centerExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
-	topLeftExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
-	topRightExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
-	bottomLeftExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
-	bottomRightExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
-	leftExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
-	rightExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
-	topExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
-	bottomExpr := "zoompan=zoom='min(zoom+0.001,1.5)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
+	// Define nine variants based on different focal positions with softer effects
+	// Zoom speed reduced from 0.001 to 0.0005, max zoom reduced from 1.5 to 1.3
+	centerExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
+	topLeftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
+	topRightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
+	bottomLeftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
+	bottomRightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
+	leftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
+	rightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
+	topExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
+	bottomExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
 
 	// Create a slice with formatted expressions.
 	var variants []string
