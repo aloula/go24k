@@ -3,11 +3,19 @@
 # Create the builds directory if it doesn't exist
 mkdir -p builds
 
-# Build for Linux
-echo "Building for Linux..."
-GOOS=linux GOARCH=amd64 go build -o builds/linux/go24k main.go
+# Build for Linux (amd64)
+echo "Building for Linux (amd64)..."
+GOOS=linux GOARCH=amd64 go build -o builds/linux/amd64/go24k main.go
 if [ $? -ne 0 ]; then
-    echo "Failed to build for Linux"
+    echo "Failed to build for Linux (amd64)"
+    exit 1
+fi
+
+# Build for Linux (arm64)
+echo "Building for Linux (arm64)..."
+GOOS=linux GOARCH=arm64 go build -o builds/linux/arm64/go24k main.go
+if [ $? -ne 0 ]; then
+    echo "Failed to build for Linux (arm64)"
     exit 1
 fi
 

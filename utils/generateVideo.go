@@ -69,41 +69,58 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 	finalLength := (totalFiles * duration) - ((totalFiles - 1) * fadeDuration)
 	filterComplex += fmt.Sprintf("[xf]trim=duration=%d,setpts=PTS-STARTPTS[xfout]; ", finalLength)
 
-	// Add music input.
+	// Check for music input.
 	musicFiles, err := filepath.Glob("*.mp3")
 	if err != nil {
 		log.Fatalf("Failed to list mp3 files: %v", err)
 	}
-	if len(musicFiles) == 0 {
-		log.Fatalf("No mp3 files found in the current directory.")
+
+	var mapArgs []string
+	hasAudio := len(musicFiles) > 0
+
+	if hasAudio {
+		fmt.Printf("Audio file found: %s\n", musicFiles[0])
+		inputs = append(inputs, "-i", musicFiles[0])
+
+		// Apply audio fades.
+		filterComplex += fmt.Sprintf("[%d:a]afade=t=in:st=0:d=2,afade=t=out:st=%d:d=4[musicout]; ", index, startFadeOut-4)
+
+		// Map video and audio
+		mapArgs = []string{"-map", "[xfout]", "-map", "[musicout]", "-shortest", "video.mp4"}
+	} else {
+		fmt.Printf("No MP3 file found - generating video without audio\n")
+
+		// Map only video
+		mapArgs = []string{"-map", "[xfout]", "video.mp4"}
 	}
-	inputs = append(inputs, "-i", musicFiles[0])
-
-	// Apply audio fades.
-	filterComplex += fmt.Sprintf("[%d:a]afade=t=in:st=0:d=2,afade=t=out:st=%d:d=4[musicout]; ", index, startFadeOut-4)
-
-	// Map [xfout] instead of [xf]
-	mapArgs := []string{"-map", "[xfout]", "-map", "[musicout]", "-shortest", "video.mp4"}
 
 	// Build the complete ffmpeg command.
 	args := []string{"-y"}
 	args = append(args, inputs...)
 	args = append(args, "-filter_complex", filterComplex)
 	args = append(args, mapArgs...)
+
+	// Video encoding settings with fallback
 	args = append(args,
-		"-hwaccel", "cuda",
-		"-c:v", "h264_nvenc",
+		"-c:v", "libx264", // Use software encoding as default for better compatibility
 		"-preset", "fast",
 		"-profile:v", "baseline",
 		"-level", "3.0",
 		"-pix_fmt", "yuv420p",
-		"-c:a", "aac",
-		"-b:a", "192k",
 		"-movflags", "+faststart",
-		"-qp", "23",
+		"-crf", "23", // Use CRF instead of QP for better quality control
 		"-r", "30",
 		"-s", "3840x2160",
 	)
+
+	// Audio encoding settings (only if audio is present)
+	if hasAudio {
+		args = append(args,
+			"-c:a", "aac",
+			"-b:a", "192k",
+		)
+	}
+
 	args = append(args, "-t", fmt.Sprintf("%d", finalLength))
 
 	// Remove printing of the FFmpeg command.
@@ -125,13 +142,20 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 	go func() {
 		spinnerChars := []string{"|", "/", "-", "\\"}
 		i := 0
+		var message string
+		if hasAudio {
+			message = "Generating video with audio"
+		} else {
+			message = "Generating video (no audio)"
+		}
+
 		for {
 			select {
 			case <-done:
 				fmt.Print("\r")
 				return
 			default:
-				fmt.Printf("\rGenerating video...:   %s", spinnerChars[i%len(spinnerChars)])
+				fmt.Printf("\r%s...:   %s", message, spinnerChars[i%len(spinnerChars)])
 				i++
 				time.Sleep(200 * time.Millisecond)
 			}
@@ -143,6 +167,29 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 		log.Fatalf("ffmpeg command failed: %v", err)
 	}
 	close(done)
+
+	// Display success message with video information
+	fmt.Printf("\n=== Video generated successfully! ===\n")
+	fmt.Printf("File: video.mp4\n")
+	fmt.Printf("Resolution: 4K UHD (3840x2160)\n")
+	fmt.Printf("Duration: %d seconds\n", finalLength)
+	fmt.Printf("Images: %d\n", totalFiles)
+	if hasAudio {
+		fmt.Printf("Audio: %s\n", filepath.Base(musicFiles[0]))
+	} else {
+		fmt.Printf("Audio: None (no MP3 file found)\n")
+	}
+
+	// Get file size for user feedback
+	if fileInfo, err := os.Stat("video.mp4"); err == nil {
+		sizeKB := fileInfo.Size() / 1024
+		sizeMB := float64(sizeKB) / 1024
+		if sizeMB < 1024 {
+			fmt.Printf("Size: %.1f MB\n", sizeMB)
+		} else {
+			fmt.Printf("Size: %.2f GB\n", sizeMB/1024)
+		}
+	}
 }
 
 // getKenBurnsEffect generates a Ken Burns effect using a fixed zoompan expression.
