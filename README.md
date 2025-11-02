@@ -17,6 +17,27 @@ Go24K is a Go program that processes JPEG images in the current directory, resiz
 - **Cross-Platform Compatibility**: Works on Windows CMD, Linux, and macOS with appropriate UI
 - **Multi-Platform**: Pre-built binaries for Linux, macOS (Intel/ARM), and Windows
 
+## Quality Optimization
+
+Go24K automatically detects your environment and applies optimal video encoding settings:
+
+- **Windows Native**: CRF 21 with optimized libx264 settings
+- **WSL (Windows Subsystem for Linux)**: Windows-compatible settings for consistent quality
+- **Linux Native**: CRF 20 for highest quality output
+
+### Environment Detection
+Use the `--debug` flag to see detected environment and encoding settings:
+```bash
+./go24k --debug
+```
+
+### Quality Settings Explained
+- **CRF 18-20**: Visually lossless quality (larger files)
+- **CRF 21-23**: High quality (recommended)
+- **CRF 24-28**: Medium quality (smaller files)
+
+The program uses different CRF values based on your environment to ensure consistent quality across platforms, addressing the quality differences that can occur between WSL and Windows native execution.
+
 ## Requirements
 
 - Go 1.16 or later
@@ -101,6 +122,9 @@ Go24K supports several command-line options to customize the video generation:
 - `-d <seconds>`  
   Duration per image in seconds (default: 5). Controls how long each image is displayed in the final video.
   
+- `--debug`  
+  Show environment detection and video encoding optimization info. Displays detected OS, architecture, and quality settings that will be used.
+  
 - `-static`  
   Disable Ken Burns effect; use static images with transitions only. Creates a simpler slideshow without zoom/pan effects.
   
@@ -124,6 +148,9 @@ Go24K supports several command-line options to customize the video generation:
 
 # Only convert images, don't generate video
 ./go24k -convert-only
+
+# Check environment and quality settings
+./go24k --debug
 
 # Works with or without audio automatically:
 # • With music.mp3 present: Creates video with synchronized audio

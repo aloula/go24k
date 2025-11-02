@@ -14,7 +14,14 @@ func main() {
 	static := flag.Bool("static", false, "Do NOT apply Ken Burns effect; use static images with transitions")
 	duration := flag.Int("d", 5, "Duration per image in seconds")
 	transition := flag.Int("t", 1, "Transition (fade) duration in seconds")
+	debug := flag.Bool("debug", false, "Show environment detection and optimization info")
 	flag.Parse()
+
+	// Show debug info if requested
+	if *debug {
+		utils.ShowEnvironmentInfo()
+		return
+	}
 
 	startTime := time.Now()
 

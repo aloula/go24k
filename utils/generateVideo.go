@@ -7,8 +7,107 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 )
+
+// isWSL detects if we're running in Windows Subsystem for Linux
+func isWSL() bool {
+	if runtime.GOOS != "linux" {
+		return false
+	}
+
+	// Check /proc/version for WSL signature
+	if data, err := os.ReadFile("/proc/version"); err == nil {
+		version := strings.ToLower(string(data))
+		return strings.Contains(version, "microsoft") || strings.Contains(version, "wsl")
+	}
+
+	// Fallback: check for WSL environment variable
+	if wslDistro := os.Getenv("WSL_DISTRO_NAME"); wslDistro != "" {
+		return true
+	}
+
+	return false
+}
+
+// getOptimalVideoSettings returns optimized FFmpeg settings based on environment
+func getOptimalVideoSettings() []string {
+	// Base settings optimized for quality and compatibility
+	settings := []string{
+		"-c:v", "libx264",
+		"-preset", "slow", // Better quality than "fast"
+		"-profile:v", "high", // Higher profile for better compression
+		"-level", "4.0", // Higher level for 4K support
+		"-pix_fmt", "yuv420p",
+		"-movflags", "+faststart",
+		"-r", "30",
+		"-s", "3840x2160",
+	}
+
+	// Detect environment and apply consistent quality settings
+	isWindowsNative := runtime.GOOS == "windows"
+	isWSLEnv := isWSL()
+
+	if isWindowsNative {
+		// Windows native: use slightly higher CRF for consistency
+		fmt.Printf("Environment: Windows native - using optimized settings\n")
+		settings = append(settings, "-crf", "21") // Slightly better quality
+	} else if isWSLEnv {
+		// WSL: match Windows quality explicitly
+		fmt.Printf("Environment: WSL detected - using Windows-compatible settings\n")
+		settings = append(settings, "-crf", "21") // Match Windows quality
+	} else {
+		// Linux native: standard high quality
+		fmt.Printf("Environment: Linux native - using high quality settings\n")
+		settings = append(settings, "-crf", "20") // Highest quality for Linux
+	}
+
+	return settings
+}
+
+// ShowEnvironmentInfo displays environment detection and optimization details
+func ShowEnvironmentInfo() {
+	fmt.Printf("=== Go24K Environment Detection ===\n\n")
+
+	fmt.Printf("Operating System: %s\n", runtime.GOOS)
+	fmt.Printf("Architecture: %s\n", runtime.GOARCH)
+
+	if runtime.GOOS == "linux" {
+		if isWSL() {
+			fmt.Printf("Environment: WSL (Windows Subsystem for Linux)\n")
+		} else {
+			fmt.Printf("Environment: Native Linux\n")
+		}
+	} else {
+		fmt.Printf("Environment: Native %s\n", strings.ToUpper(runtime.GOOS[:1])+runtime.GOOS[1:])
+	}
+
+	// Show the settings that would be used
+	settings := getOptimalVideoSettings()
+	fmt.Printf("\nOptimized FFmpeg Settings:\n")
+	for i := 0; i < len(settings); i += 2 {
+		if i+1 < len(settings) {
+			fmt.Printf("  %s: %s\n", settings[i], settings[i+1])
+		}
+	}
+
+	// Show quality explanation
+	fmt.Printf("\nQuality Optimization:\n")
+	if runtime.GOOS == "windows" {
+		fmt.Printf("  • Windows native: CRF 21 (high quality)\n")
+	} else if isWSL() {
+		fmt.Printf("  • WSL environment: CRF 21 (Windows-compatible quality)\n")
+	} else {
+		fmt.Printf("  • Linux native: CRF 20 (highest quality)\n")
+	}
+
+	fmt.Printf("\nCRF Scale: Lower values = higher quality/larger files\n")
+	fmt.Printf("  • CRF 18-20: Visually lossless\n")
+	fmt.Printf("  • CRF 21-23: High quality\n")
+	fmt.Printf("  • CRF 24-28: Medium quality\n")
+}
 
 // GenerateVideo creates a video from already 3840x2160 images with crossfade transitions,
 // audio fades, and optionally a Ken Burns effect applied to each image.
@@ -100,17 +199,8 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 	args = append(args, "-filter_complex", filterComplex)
 	args = append(args, mapArgs...)
 
-	// Video encoding settings with fallback
-	args = append(args,
-		"-c:v", "libx264", // Use software encoding as default for better compatibility
-		"-preset", "fast",
-		"-profile:v", "baseline",
-		"-level", "3.0",
-		"-pix_fmt", "yuv420p",
-		"-movflags", "+faststart",
-		"-crf", "23", // Use CRF instead of QP for better quality control
-		"-r", "30",
-		"-s", "3840x2160",
+	// Video encoding settings with environment-specific optimization
+	args = append(args, getOptimalVideoSettings()...,
 	)
 
 	// Audio encoding settings (only if audio is present)
