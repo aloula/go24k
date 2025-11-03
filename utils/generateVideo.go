@@ -34,48 +34,94 @@ func isWSL() bool {
 
 // Hardware encoder detection functions
 func checkNVENCAvailable() bool {
+	// First check if encoder is listed
 	cmd := exec.Command("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(output), "h264_nvenc")
+	if !strings.Contains(string(output), "h264_nvenc") {
+		return false
+	}
+
+	// Test if NVENC actually works (avoid false positives in WSL/ARM systems)
+	// Some systems report NVENC support but can't actually use it
+	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+		"-c:v", "h264_nvenc", "-f", "null", "-")
+	err = testCmd.Run()
+	return err == nil
 }
 
 func checkQSVAvailable() bool {
+	// First check if encoder is listed
 	cmd := exec.Command("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(output), "h264_qsv")
+	if !strings.Contains(string(output), "h264_qsv") {
+		return false
+	}
+
+	// Test if QSV actually works
+	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+		"-c:v", "h264_qsv", "-f", "null", "-")
+	err = testCmd.Run()
+	return err == nil
 }
 
 func checkAMFAvailable() bool {
+	// First check if encoder is listed
 	cmd := exec.Command("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(output), "h264_amf")
+	if !strings.Contains(string(output), "h264_amf") {
+		return false
+	}
+
+	// Test if AMF actually works
+	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+		"-c:v", "h264_amf", "-f", "null", "-")
+	err = testCmd.Run()
+	return err == nil
 }
 
 func checkMediaFoundationAvailable() bool {
+	// First check if encoder is listed
 	cmd := exec.Command("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(output), "h264_mf")
+	if !strings.Contains(string(output), "h264_mf") {
+		return false
+	}
+
+	// Test if Media Foundation actually works
+	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+		"-c:v", "h264_mf", "-f", "null", "-")
+	err = testCmd.Run()
+	return err == nil
 }
 
 func checkVAAPIAvailable() bool {
+	// First check if encoder is listed
 	cmd := exec.Command("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
 	}
-	return strings.Contains(string(output), "h264_vaapi")
+	if !strings.Contains(string(output), "h264_vaapi") {
+		return false
+	}
+
+	// Test if VAAPI actually works
+	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+		"-c:v", "h264_vaapi", "-f", "null", "-")
+	err = testCmd.Run()
+	return err == nil
 }
 
 // HardwareEncoder represents different hardware encoding options
