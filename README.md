@@ -150,8 +150,8 @@ make build-all    # Compilar para todas as plataformas
 # Testes específicos
 make test-unit         # Apenas testes unitários
 make test-integration  # Apenas testes de integração
-make bench            # Benchmarks de performance
-make coverage         # Relatório HTML de cobertura
+make bench             # Benchmarks de performance
+make coverage          # Relatório HTML de cobertura
 
 # Utilitários
 make clean        # Limpar arquivos gerados

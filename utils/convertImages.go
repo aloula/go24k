@@ -25,12 +25,7 @@ func ConvertImages() error {
 		return nil // Exit the function without an error.
 	}
 
-	// Create "converted" directory.
-	if err := os.MkdirAll("converted", os.ModePerm); err != nil {
-		return fmt.Errorf("failed to create directory: %v", err)
-	}
-
-	// Process each .jpg file.
+	// First, check how many .jpg files we have before creating the directory.
 	files, err := filepath.Glob("*.jpg")
 	if err != nil {
 		return fmt.Errorf("failed to list .jpg files: %v", err)
@@ -40,6 +35,15 @@ func ConvertImages() error {
 
 	if fileCount == 0 {
 		return fmt.Errorf("no .jpg files found in current directory")
+	}
+
+	if fileCount < 2 {
+		return fmt.Errorf("need at least 2 images to create a video, found only %d", fileCount)
+	}
+
+	// Create "converted" directory only after confirming we have enough images.
+	if err := os.MkdirAll("converted", os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create directory: %v", err)
 	}
 
 	// Display conversion info

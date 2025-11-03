@@ -81,20 +81,42 @@ func TestConvertImages_NoImages(t *testing.T) {
 		t.Errorf("Expected error message to contain '%s', got: %s", expectedMsg, err.Error())
 	}
 
-	// Verify converted directory was created (even though no images processed)
-	// Note: Current implementation creates directory before checking for images
+	// Verify converted directory was NOT created when no images are found
 	convertedDir := filepath.Join(tempDir, "converted")
-	if _, err := os.Stat(convertedDir); os.IsNotExist(err) {
-		t.Error("Converted directory should be created even when no images are found")
+	if _, err := os.Stat(convertedDir); !os.IsNotExist(err) {
+		t.Error("Converted directory should NOT be created when no images are found")
+	}
+}
+
+func TestConvertImages_InsufficientImages(t *testing.T) {
+	tempDir := setupTestDir(t)
+
+	// Create only one test image
+	createTestImage(t, "single.jpg", 1920, 1080)
+
+	err := ConvertImages()
+	if err == nil {
+		t.Error("Expected error when only one image is present, but got nil")
+	}
+
+	expectedMsg := "need at least 2 images to create a video, found only 1"
+	if !contains(err.Error(), expectedMsg) {
+		t.Errorf("Expected error message to contain '%s', got: %s", expectedMsg, err.Error())
+	}
+
+	// Verify converted directory was NOT created with insufficient images
+	convertedDir := filepath.Join(tempDir, "converted")
+	if _, err := os.Stat(convertedDir); !os.IsNotExist(err) {
+		t.Error("Converted directory should NOT be created when insufficient images are found")
 	}
 }
 
 func TestConvertImages_SingleImage(t *testing.T) {
 	tempDir := setupTestDir(t)
 
-	// Create a test image
-	testImagePath := "test_image.jpg"
-	createTestImage(t, testImagePath, 4032, 3024) // Common phone camera resolution
+	// Create two test images (minimum required for video)
+	createTestImage(t, "test_image1.jpg", 4032, 3024) // Common phone camera resolution
+	createTestImage(t, "test_image2.jpg", 1920, 1080) // Standard HD resolution
 
 	err := ConvertImages()
 	if err != nil {
@@ -107,14 +129,14 @@ func TestConvertImages_SingleImage(t *testing.T) {
 		t.Error("Converted directory was not created")
 	}
 
-	// Verify converted image exists
+	// Verify converted images exist
 	convertedFiles, err := filepath.Glob(filepath.Join(convertedDir, "*.jpg"))
 	if err != nil {
 		t.Errorf("Failed to list converted files: %v", err)
 	}
 
-	if len(convertedFiles) != 1 {
-		t.Errorf("Expected 1 converted file, got %d", len(convertedFiles))
+	if len(convertedFiles) != 2 {
+		t.Errorf("Expected 2 converted files, got %d", len(convertedFiles))
 	}
 }
 
@@ -195,10 +217,12 @@ func findSubstring(s, substr string) bool {
 func TestProcessSingleImage_Integration(t *testing.T) {
 	tempDir := setupTestDir(t)
 
-	// Create test image with EXIF-like timestamp in filename
+	// Create two test images with EXIF-like timestamp in filename
 	timestamp := time.Now().Format("20060102_150405")
-	testImageName := timestamp + ".jpg"
-	createTestImage(t, testImageName, 2000, 1500)
+	testImageName1 := timestamp + ".jpg"
+	testImageName2 := timestamp + "_2.jpg"
+	createTestImage(t, testImageName1, 2000, 1500)
+	createTestImage(t, testImageName2, 1920, 1080)
 
 	err := ConvertImages()
 	if err != nil {
@@ -221,7 +245,9 @@ func TestConvertImages_ErrorCases(t *testing.T) {
 	_ = setupTestDir(t)
 
 	t.Run("CorruptedJPEG", func(t *testing.T) {
-		// Create a corrupted JPEG file
+		// Create one valid image and one corrupted JPEG file
+		createTestImage(t, "valid.jpg", 1920, 1080)
+
 		corruptedFile, err := os.Create("corrupted.jpg")
 		if err != nil {
 			t.Fatalf("Failed to create corrupted file: %v", err)
@@ -242,8 +268,9 @@ func TestConvertImages_ErrorCases(t *testing.T) {
 		// Clean up first
 		os.RemoveAll("corrupted.jpg")
 
-		// Create test image
-		createTestImage(t, "readonly_test.jpg", 1920, 1080)
+		// Create two test images to pass minimum validation
+		createTestImage(t, "readonly_test1.jpg", 1920, 1080)
+		createTestImage(t, "readonly_test2.jpg", 1920, 1080)
 
 		// Try to create converted directory as read-only (this test may be platform specific)
 		os.MkdirAll("converted", 0444) // Read-only permissions
@@ -341,22 +368,25 @@ func TestConvertImages_DifferentResolutions(t *testing.T) {
 				os.Remove(f)
 			}
 
-			filename := fmt.Sprintf("%s.jpg", strings.ToLower(tc.name))
-			createTestImage(t, filename, tc.width, tc.height)
+			// Create two images: one with test resolution, one standard
+			filename1 := fmt.Sprintf("%s.jpg", strings.ToLower(tc.name))
+			filename2 := fmt.Sprintf("%s_standard.jpg", strings.ToLower(tc.name))
+			createTestImage(t, filename1, tc.width, tc.height)
+			createTestImage(t, filename2, 1920, 1080) // Standard resolution companion
 
 			err := ConvertImages()
 			if err != nil {
 				t.Errorf("Failed to convert %s image: %v", tc.name, err)
 			}
 
-			// Verify converted file exists
+			// Verify converted files exist
 			convertedFiles, err := filepath.Glob(filepath.Join("converted", "*.jpg"))
 			if err != nil {
 				t.Errorf("Failed to list converted files: %v", err)
 			}
 
-			if len(convertedFiles) != 1 {
-				t.Errorf("Expected 1 converted file for %s, got %d", tc.name, len(convertedFiles))
+			if len(convertedFiles) != 2 {
+				t.Errorf("Expected 2 converted files for %s, got %d", tc.name, len(convertedFiles))
 			}
 		})
 	}
@@ -366,8 +396,9 @@ func TestConvertImages_DifferentResolutions(t *testing.T) {
 func TestConvertImages_FilePermissions(t *testing.T) {
 	_ = setupTestDir(t)
 
-	// Create test image
+	// Create two test images
 	createTestImage(t, "perm_test.jpg", 1920, 1080)
+	createTestImage(t, "perm_test2.jpg", 1280, 720)
 
 	// Test normal conversion first
 	err := ConvertImages()
@@ -381,8 +412,8 @@ func TestConvertImages_FilePermissions(t *testing.T) {
 		t.Errorf("Failed to list converted files: %v", err)
 	}
 
-	if len(convertedFiles) == 0 {
-		t.Error("No converted files found")
+	if len(convertedFiles) != 2 {
+		t.Errorf("Expected 2 converted files, got %d", len(convertedFiles))
 	}
 }
 

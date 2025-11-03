@@ -26,7 +26,10 @@ func main() {
 	startTime := time.Now()
 
 	// Convert images (e.g. scale, add background, overlay, etc.)
-	utils.ConvertImages()
+	if err := utils.ConvertImages(); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
 
 	// Generate video only if convert-only is not set.
 	if !*convertOnly {
