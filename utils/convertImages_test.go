@@ -125,7 +125,7 @@ func TestConvertImages_SingleImage(t *testing.T) {
 
 	// Verify converted directory was created
 	convertedDir := filepath.Join(tempDir, "converted")
-	if _, err := os.Stat(convertedDir); os.IsNotExist(err) {
+	if _, statErr := os.Stat(convertedDir); os.IsNotExist(statErr) {
 		t.Error("Converted directory was not created")
 	}
 

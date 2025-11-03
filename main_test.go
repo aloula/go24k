@@ -331,17 +331,3 @@ func BenchmarkFlagParsing(b *testing.B) {
 		os.Args = oldArgs
 	}
 }
-
-// Example of how to test main() function (currently not feasible due to os.Exit)
-func ExampleMain() {
-	// This would require refactoring main() to be testable
-	// Currently main() calls functions that use log.Fatal() which exits the program
-
-	// A testable version would:
-	// 1. Return errors instead of calling log.Fatal()
-	// 2. Accept configuration as parameters instead of parsing flags internally
-	// 3. Allow dependency injection for testing
-
-	// Example refactored signature:
-	// func Main(config Config, converter ImageConverter, generator VideoGenerator) error
-}
