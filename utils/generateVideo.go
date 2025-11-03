@@ -124,6 +124,15 @@ func checkVAAPIAvailable() bool {
 	return err == nil
 }
 
+func checkVideoToolboxAvailable() bool {
+	cmd := exec.Command("ffmpeg", "-encoders")
+	output, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(output), "h264_videotoolbox")
+}
+
 // HardwareEncoder represents different hardware encoding options
 type HardwareEncoder struct {
 	Name        string
@@ -136,6 +145,7 @@ type HardwareEncoder struct {
 func getOptimalVideoSettings() []string {
 	// Check hardware acceleration availability in priority order
 	hasNVENC := checkNVENCAvailable()
+	hasVideoToolbox := checkVideoToolboxAvailable()
 	hasQSV := checkQSVAvailable()
 	hasAMF := checkAMFAvailable()
 	hasMediaFoundation := checkMediaFoundationAvailable()
@@ -149,7 +159,7 @@ func getOptimalVideoSettings() []string {
 		"-s", "3840x2160",
 	}
 
-	// Priority order: NVENC > Media Foundation (for Snapdragon) > QSV > AMF > VAAPI > CPU
+	// Priority order: NVENC > VideoToolbox (macOS) > Media Foundation (Windows) > QSV > AMF > VAAPI > CPU
 	if hasNVENC {
 		// NVIDIA GPU acceleration
 		fmt.Printf("🚀 Hardware: NVIDIA NVENC detected - using GPU acceleration\n")
@@ -161,6 +171,20 @@ func getOptimalVideoSettings() []string {
 			"-rc:v", "vbr",
 			"-cq:v", "21",
 			"-b:v", "0",
+			"-maxrate", "15M",
+			"-bufsize", "30M",
+		)
+	} else if hasVideoToolbox {
+		// Apple VideoToolbox (macOS native hardware acceleration)
+		fmt.Printf("🍎 Hardware: VideoToolbox detected - using Apple hardware acceleration\n")
+		settings = append(settings,
+			"-c:v", "h264_videotoolbox",
+			"-profile:v", "high",
+			"-level", "5.1",
+			"-q:v", "21", // Quality-based encoding similar to CRF
+			"-realtime", "false", // Better quality encoding
+			"-frames:v", "0", // Unlimited frames
+			"-b:v", "10M", // Target bitrate for 4K
 			"-maxrate", "15M",
 			"-bufsize", "30M",
 		)
@@ -250,6 +274,7 @@ func ShowEnvironmentInfo() {
 
 	// Check all hardware acceleration types
 	hasNVENC := checkNVENCAvailable()
+	hasVideoToolbox := checkVideoToolboxAvailable()
 	hasQSV := checkQSVAvailable()
 	hasAMF := checkAMFAvailable()
 	hasMediaFoundation := checkMediaFoundationAvailable()
@@ -260,6 +285,9 @@ func ShowEnvironmentInfo() {
 	// Show what's available
 	if hasNVENC {
 		fmt.Printf("  🚀 NVIDIA NVENC: Available\n")
+	}
+	if hasVideoToolbox {
+		fmt.Printf("  🍎 Apple VideoToolbox: Available\n")
 	}
 	if hasMediaFoundation {
 		fmt.Printf("  🧠 Windows Media Foundation: Available (Snapdragon X, Intel, AMD)\n")
@@ -279,6 +307,10 @@ func ShowEnvironmentInfo() {
 	if hasNVENC {
 		fmt.Printf("  🎯 Using: NVIDIA NVENC (highest priority)\n")
 		fmt.Printf("  ⚡ Performance: ~5-10x faster than CPU\n")
+	} else if hasVideoToolbox {
+		fmt.Printf("  🎯 Using: Apple VideoToolbox\n")
+		fmt.Printf("  🍎 Optimized for: Apple Silicon (M1/M2/M3) hardware encoding\n")
+		fmt.Printf("  ⚡ Performance: ~3-8x faster than CPU\n")
 	} else if hasMediaFoundation {
 		fmt.Printf("  🎯 Using: Windows Media Foundation\n")
 		fmt.Printf("  🧠 Optimized for: Snapdragon X Plus hardware encoding\n")

@@ -14,8 +14,11 @@ Utilitário pessoal para criar vídeos 4K a partir de imagens JPEG com efeitos K
 
 Detecta automaticamente e usa a melhor opção disponível:
 - **NVIDIA NVENC**: 5-10x mais rápido (GPUs GeForce GTX 10+ / RTX)
+- **Apple VideoToolbox**: 3-8x mais rápido (Apple Silicon M1/M2/M3, macOS)
+- **Windows Media Foundation**: 3-5x mais rápido (Snapdragon X, Intel, AMD no Windows)
 - **Intel Quick Sync**: 2-4x mais rápido (processadores com gráficos integrados)
 - **AMD AMF**: 2-4x mais rápido (GPUs/APUs AMD)
+- **Linux VAAPI**: 2-4x mais rápido (Linux com drivers VAAPI)
 - **CPU**: Fallback universal (funciona em qualquer sistema)
 
 ## Requisitos

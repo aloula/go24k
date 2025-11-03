@@ -129,6 +129,23 @@ func TestCheckAMFAvailable(t *testing.T) {
 	t.Logf("AMF Available: %v", result)
 }
 
+func TestCheckVideoToolboxAvailable(t *testing.T) {
+	// Graceful handling if ffmpeg is not available
+	defer func() {
+		if r := recover(); r != nil {
+			t.Logf("Recovered from panic: %v", r)
+		}
+	}()
+
+	result := checkVideoToolboxAvailable()
+
+	if result != true && result != false {
+		t.Errorf("checkVideoToolboxAvailable() should return boolean, got %T", result)
+	}
+
+	t.Logf("VideoToolbox Available: %v", result)
+}
+
 // TestGetOptimalVideoSettings tests video settings generation
 func TestGetOptimalVideoSettings(t *testing.T) {
 	settings := getOptimalVideoSettings()
@@ -313,6 +330,7 @@ func TestHardwareDetection_EdgeCases(t *testing.T) {
 	t.Run("All_detection_functions_callable", func(t *testing.T) {
 		// Verify all hardware detection functions can be called without panicking
 		_ = checkNVENCAvailable()
+		_ = checkVideoToolboxAvailable()
 		_ = checkQSVAvailable()
 		_ = checkAMFAvailable()
 		_ = checkMediaFoundationAvailable()

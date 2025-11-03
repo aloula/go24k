@@ -230,7 +230,7 @@ func createSimpleJPEG(t *testing.T, filename string) {
 	}
 }
 
-func createImageWithGo(t *testing.T, filename string) {
+func createImageWithGo(t *testing.T, _ string) {
 	// Fallback method using Go's image packages
 	// (Implementation similar to what we have in the unit tests)
 	t.Skip("Image creation fallback not fully implemented")
