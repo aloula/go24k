@@ -3,6 +3,10 @@
 *.mp4
 *.mp3
 
+# Exceções - arquivos de teste devem ser versionados
+!test_image*.jpg
+!test_audio*.mp3
+
 # Diretórios gerados
 /converted/
 /builds/
