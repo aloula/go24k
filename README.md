@@ -95,6 +95,80 @@ Gera:
 - **Permissão negada**: `chmod +x go24k` (Linux/macOS)
 - **Sem aceleração**: Drivers atualizados e FFmpeg com suporte a hardware
 
+## Desenvolvimento
+
+### Executar Testes
+
+O projeto inclui uma suite completa de testes:
+
+```bash
+# Todos os testes
+./test.sh
+
+# Apenas testes unitários
+./test.sh unit
+
+# Apenas testes de integração
+./test.sh integration
+
+# Benchmarks de performance
+./test.sh bench
+
+# Análise estática (vet, fmt, lint)
+./test.sh lint
+
+# Teste de compilação cruzada
+./test.sh build
+
+# Limpar arquivos temporários
+./test.sh clean
+```
+
+### Cobertura de Testes
+
+- **Testes Unitários**: Funções de conversão de imagens e geração de vídeo
+- **Testes de Integração**: Workflow completo com FFmpeg
+- **Benchmarks**: Performance de conversão de imagens
+- **Análise Estática**: Qualidade e formatação do código
+
+O relatório de cobertura é gerado automaticamente em `coverage.html`.
+
+### Comandos Make Disponíveis
+
+```bash
+# Desenvolvimento rápido
+make dev          # fmt + lint + test-unit
+make check        # Verificação pré-commit
+
+# Compilação
+make build        # Compilar para plataforma atual
+make build-all    # Compilar para todas as plataformas
+
+# Testes específicos
+make test-unit         # Apenas testes unitários
+make test-integration  # Apenas testes de integração
+make bench            # Benchmarks de performance
+make coverage         # Relatório HTML de cobertura
+
+# Utilitários
+make clean        # Limpar arquivos gerados
+make install      # Instalar no sistema
+make help         # Ver todos os comandos
+```
+
+### Estrutura dos Testes
+
+```
+├── utils/
+│   ├── convertImages_test.go    # Testes de conversão de imagens
+│   └── generateVideo_test.go    # Testes de geração de vídeo
+├── main_test.go                 # Testes da função main
+├── integration_test.go          # Testes de integração
+├── test.sh                     # Script de execução de testes
+├── Makefile                    # Comandos de desenvolvimento
+└── .github/workflows/ci.yml    # CI/CD automático
+```
+
 ## Licença
 
 MIT License

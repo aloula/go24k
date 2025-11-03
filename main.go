@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"go_video_tools/utils"
+	"go24k/utils"
 )
 
 func main() {

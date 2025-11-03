@@ -1,4 +1,4 @@
-module go_video_tools
+module go24k
 
 go 1.23.6
 

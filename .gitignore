@@ -1,5 +1,41 @@
+# Arquivos de mídia
 *.jpg
 *.mp4
 *.mp3
+
+# Diretórios gerados
 /converted/
+/builds/
+
+# Binários
+go24k
+go24k.exe
+go24k-*
+go24k_test_*
+
+# Arquivos de teste e cobertura
+coverage.out
+coverage.html
+*_test_*/
+
+# Arquivos temporários
+*.tmp
+*.temp
+
+# Logs
+*.log
+
+# IDEs e editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Dependências Go (caso não esteja commitando)
+# vendor/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
 
