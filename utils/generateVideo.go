@@ -162,7 +162,7 @@ func getOptimalVideoSettings() []string {
 	// Priority order: NVENC > VideoToolbox (macOS) > Media Foundation (Windows) > QSV > AMF > VAAPI > CPU
 	if hasNVENC {
 		// NVIDIA GPU acceleration
-		fmt.Printf("🚀 Hardware: NVIDIA NVENC detected - using GPU acceleration\n")
+		fmt.Printf("Hardware: NVIDIA NVENC detected - using GPU acceleration\n")
 		settings = append(settings,
 			"-c:v", "h264_nvenc",
 			"-preset", "slow",
@@ -176,7 +176,7 @@ func getOptimalVideoSettings() []string {
 		)
 	} else if hasVideoToolbox {
 		// Apple VideoToolbox (macOS native hardware acceleration)
-		fmt.Printf("🍎 Hardware: VideoToolbox detected - using Apple hardware acceleration\n")
+		fmt.Printf("Hardware: VideoToolbox detected - using Apple hardware acceleration\n")
 		settings = append(settings,
 			"-c:v", "h264_videotoolbox",
 			"-profile:v", "high",
@@ -205,7 +205,7 @@ func getOptimalVideoSettings() []string {
 		)
 	} else if hasQSV {
 		// Intel Quick Sync Video
-		fmt.Printf("⚡ Hardware: Intel QSV detected - using Intel hardware acceleration\n")
+		fmt.Printf("Hardware: Intel QSV detected - using Intel hardware acceleration\n")
 		settings = append(settings,
 			"-c:v", "h264_qsv",
 			"-preset", "slower", // QSV preset for quality
@@ -218,7 +218,7 @@ func getOptimalVideoSettings() []string {
 		)
 	} else if hasAMF {
 		// AMD Advanced Media Framework
-		fmt.Printf("🔥 Hardware: AMD AMF detected - using AMD hardware acceleration\n")
+		fmt.Printf("Hardware: AMD AMF detected - using AMD hardware acceleration\n")
 		settings = append(settings,
 			"-c:v", "h264_amf",
 			"-quality", "quality", // Quality mode
@@ -242,7 +242,7 @@ func getOptimalVideoSettings() []string {
 		)
 	} else {
 		// Fallback to CPU encoding
-		fmt.Printf("💻 CPU: Using libx264 software encoding\n")
+		fmt.Printf("CPU: Using libx264 software encoding\n")
 		settings = append(settings,
 			"-c:v", "libx264",
 			"-preset", "slow",
@@ -284,49 +284,49 @@ func ShowEnvironmentInfo() {
 
 	// Show what's available
 	if hasNVENC {
-		fmt.Printf("  🚀 NVIDIA NVENC: Available\n")
+		fmt.Printf("  NVIDIA NVENC: Available\n")
 	}
 	if hasVideoToolbox {
-		fmt.Printf("  🍎 Apple VideoToolbox: Available\n")
+		fmt.Printf("  Apple VideoToolbox: Available\n")
 	}
 	if hasMediaFoundation {
-		fmt.Printf("  🧠 Windows Media Foundation: Available (Snapdragon X, Intel, AMD)\n")
+		fmt.Printf("  Windows Media Foundation: Available (Snapdragon X, Intel, AMD)\n")
 	}
 	if hasQSV {
-		fmt.Printf("  ⚡ Intel Quick Sync (QSV): Available\n")
+		fmt.Printf("  Intel Quick Sync (QSV): Available\n")
 	}
 	if hasAMF {
-		fmt.Printf("  🔥 AMD AMF: Available\n")
+		fmt.Printf("  AMD AMF: Available\n")
 	}
 	if hasVAAPI {
-		fmt.Printf("  🐧 Linux VAAPI: Available\n")
+		fmt.Printf("  Linux VAAPI: Available\n")
 	}
 
 	// Show selected encoder
 	fmt.Printf("\nSelected Encoder:\n")
 	if hasNVENC {
-		fmt.Printf("  🎯 Using: NVIDIA NVENC (highest priority)\n")
-		fmt.Printf("  ⚡ Performance: ~5-10x faster than CPU\n")
+		fmt.Printf("  Using: NVIDIA NVENC (highest priority)\n")
+		fmt.Printf("  Performance: ~5-10x faster than CPU\n")
 	} else if hasVideoToolbox {
-		fmt.Printf("  🎯 Using: Apple VideoToolbox\n")
-		fmt.Printf("  🍎 Optimized for: Apple Silicon (M1/M2/M3) hardware encoding\n")
-		fmt.Printf("  ⚡ Performance: ~3-8x faster than CPU\n")
+		fmt.Printf("  Using: Apple VideoToolbox\n")
+		fmt.Printf("  Optimized for: Apple Silicon (M1/M2/M3) hardware encoding\n")
+		fmt.Printf("  Performance: ~3-8x faster than CPU\n")
 	} else if hasMediaFoundation {
-		fmt.Printf("  🎯 Using: Windows Media Foundation\n")
-		fmt.Printf("  🧠 Optimized for: Snapdragon X Plus hardware encoding\n")
-		fmt.Printf("  ⚡ Performance: ~3-5x faster than CPU\n")
+		fmt.Printf("  Using: Windows Media Foundation\n")
+		fmt.Printf("  Optimized for: Snapdragon X Plus hardware encoding\n")
+		fmt.Printf("  Performance: ~3-5x faster than CPU\n")
 	} else if hasQSV {
-		fmt.Printf("  🎯 Using: Intel Quick Sync Video\n")
-		fmt.Printf("  ⚡ Performance: ~2-4x faster than CPU\n")
+		fmt.Printf("  Using: Intel Quick Sync Video\n")
+		fmt.Printf("  Performance: ~2-4x faster than CPU\n")
 	} else if hasAMF {
-		fmt.Printf("  🎯 Using: AMD Advanced Media Framework\n")
-		fmt.Printf("  ⚡ Performance: ~2-4x faster than CPU\n")
+		fmt.Printf("  Using: AMD Advanced Media Framework\n")
+		fmt.Printf("  Performance: ~2-4x faster than CPU\n")
 	} else if hasVAAPI {
-		fmt.Printf("  🎯 Using: Linux VAAPI\n")
-		fmt.Printf("  ⚡ Performance: ~2-3x faster than CPU\n")
+		fmt.Printf("  Using: Linux VAAPI\n")
+		fmt.Printf("  Performance: ~2-3x faster than CPU\n")
 	} else {
-		fmt.Printf("  💻 Using: CPU libx264 (software encoding)\n")
-		fmt.Printf("  ⏱️  Performance: Standard CPU-based encoding\n")
+		fmt.Printf("  Using: CPU libx264 (software encoding)\n")
+		fmt.Printf("  Performance: Standard CPU-based encoding\n")
 	}
 
 	// Show the settings that would be used
@@ -389,10 +389,10 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 	}
 
 	if len(files) < 2 {
-		log.Fatalf("❌ Not enough images found. Need at least 2 images to create a video with transitions.\nFound: %d image(s) in 'converted/' directory.", len(files))
+		log.Fatalf("Not enough images found. Need at least 2 images to create a video with transitions.\nFound: %d image(s) in 'converted/' directory.", len(files))
 	}
 
-	fmt.Printf("✅ Found %d images ready for video generation:\n", len(files))
+	fmt.Printf("Found %d images ready for video generation:\n", len(files))
 	for i, file := range files {
 		fmt.Printf("  %d. %s\n", i+1, filepath.Base(file))
 	}

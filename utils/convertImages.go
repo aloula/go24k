@@ -7,13 +7,11 @@ import (
 	"image/draw"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/rwcarlsen/goexif/exif"
-	"github.com/schollz/progressbar/v3"
 )
 
 // ConvertImages processes each .jpg file in the working directory, applies scaling,
@@ -46,44 +44,16 @@ func ConvertImages() error {
 		return fmt.Errorf("failed to create directory: %v", err)
 	}
 
-	// Display conversion info
-	fmt.Printf("\n=== Starting Image Conversion ===\n")
-	fmt.Printf("Images to process: %d\n", fileCount)
-	fmt.Printf("Target: 4K UHD (3840x2160) with 2160p height scaling\n")
-	fmt.Printf("Output: converted/ directory\n\n")
+	// Display simple conversion info
+	fmt.Printf("Converting %d images to 4K UHD...\n", fileCount)
 
 	startTime := time.Now()
 	var totalOriginalSize, totalConvertedSize int64
 
-	// On Windows, use a simpler progress bar to avoid issues.
-	var bar *progressbar.ProgressBar
-	if runtime.GOOS == "windows" {
-		bar = progressbar.NewOptions(fileCount,
-			progressbar.OptionSetDescription("Converting"),
-			progressbar.OptionShowCount(),
-			progressbar.OptionShowIts(),
-			progressbar.OptionSetWidth(40),
-			progressbar.OptionSetRenderBlankState(true),
-			progressbar.OptionOnCompletion(func() {
-				fmt.Printf("\n=== Image conversion completed! ===\n\n")
-			}),
-		)
-	} else {
-		// For non-Windows, you can add an animated spinner and emojis.
-		bar = progressbar.NewOptions(fileCount,
-			progressbar.OptionSetDescription("🔄 Converting"),
-			progressbar.OptionShowCount(),
-			progressbar.OptionShowIts(),
-			progressbar.OptionSetWidth(40),
-			progressbar.OptionSpinnerType(14),
-			progressbar.OptionSetRenderBlankState(true),
-			progressbar.OptionOnCompletion(func() {
-				fmt.Printf("\n✅ Image conversion completed!\n\n")
-			}),
-		)
-	}
+	for i, file := range files {
+		// Simple progress indicator
+		fmt.Printf("[%d/%d] %s\n", i+1, fileCount, filepath.Base(file))
 
-	for _, file := range files {
 		// Get original file size
 		if info, err := os.Stat(file); err == nil {
 			totalOriginalSize += info.Size()
@@ -95,18 +65,8 @@ func ConvertImages() error {
 			return fmt.Errorf("failed to open image %s: %v", file, err)
 		}
 
-		// Get original image dimensions
-		bounds := img.Bounds()
-		originalWidth := bounds.Dx()
-		originalHeight := bounds.Dy()
-
 		// Resize and process image.
 		imgResized := imaging.Resize(img, 0, 2160, imaging.Lanczos)
-
-		// Get resized image dimensions
-		resizedBounds := imgResized.Bounds()
-		resizedWidth := resizedBounds.Dx()
-		resizedHeight := resizedBounds.Dy()
 
 		// Create a black background.
 		uhdBlack := image.NewRGBA(image.Rect(0, 0, 3840, 2160))
@@ -132,46 +92,11 @@ func ConvertImages() error {
 		if info, err := os.Stat(filenameConverted); err == nil {
 			totalConvertedSize += info.Size()
 		}
-
-		// Update progress bar with resolution information
-		shortFilename := filepath.Base(file)
-		if len(shortFilename) > 20 {
-			shortFilename = shortFilename[:17] + "..."
-		}
-		// Use different format based on OS for better compatibility
-		if runtime.GOOS == "windows" {
-			bar.Describe(fmt.Sprintf("Converting %s (%dx%d->%dx%d)",
-				shortFilename, originalWidth, originalHeight, resizedWidth, resizedHeight))
-		} else {
-			bar.Describe(fmt.Sprintf("Converting %s (%dx%d→%dx%d)",
-				shortFilename, originalWidth, originalHeight, resizedWidth, resizedHeight))
-		}
-		bar.Add(1)
 	}
 
-	// Display final statistics
+	// Display simple completion message
 	elapsed := time.Since(startTime)
-	avgSpeed := float64(fileCount) / elapsed.Seconds()
-
-	if runtime.GOOS == "windows" {
-		fmt.Printf("=== Conversion Statistics ===\n")
-		fmt.Printf("   Processing time: %.1f seconds\n", elapsed.Seconds())
-		fmt.Printf("   Average speed: %.1f images/sec\n", avgSpeed)
-		fmt.Printf("   Original total size: %.1f MB\n", float64(totalOriginalSize)/(1024*1024))
-		fmt.Printf("   Converted total size: %.1f MB\n", float64(totalConvertedSize)/(1024*1024))
-		if totalOriginalSize > 0 {
-			fmt.Printf("   Size ratio: %.1fx\n", float64(totalConvertedSize)/float64(totalOriginalSize))
-		}
-	} else {
-		fmt.Printf("📈 Conversion Statistics:\n")
-		fmt.Printf("   ⏱️  Processing time: %.1f seconds\n", elapsed.Seconds())
-		fmt.Printf("   🚀 Average speed: %.1f images/sec\n", avgSpeed)
-		fmt.Printf("   📁 Original total size: %.1f MB\n", float64(totalOriginalSize)/(1024*1024))
-		fmt.Printf("   📁 Converted total size: %.1f MB\n", float64(totalConvertedSize)/(1024*1024))
-		if totalOriginalSize > 0 {
-			fmt.Printf("   📊 Size ratio: %.1fx\n", float64(totalConvertedSize)/float64(totalOriginalSize))
-		}
-	}
+	fmt.Printf("Conversion completed in %.1f seconds\n", elapsed.Seconds())
 
 	return nil
 }

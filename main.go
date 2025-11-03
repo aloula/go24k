@@ -39,8 +39,10 @@ func main() {
 		utils.GenerateVideo(*duration, *transition, applyKenBurns)
 	}
 
-	// Report processing time.
-	elapsedTime := time.Since(startTime).Seconds()
-	fmt.Printf("\nProcessing time: %.1f seconds\n", elapsedTime)
+	// Report processing time (only if not convert-only since conversion already shows its time)
+	if !*convertOnly {
+		elapsedTime := time.Since(startTime).Seconds()
+		fmt.Printf("\nProcessing time: %.1f seconds\n", elapsedTime)
+	}
 	fmt.Println("Done!")
 }
