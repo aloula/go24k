@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"flag"
+	"io"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -329,6 +332,50 @@ func BenchmarkFlagParsing(b *testing.B) {
 		os.Args = args
 		flag.Parse()
 		os.Args = oldArgs
+	}
+}
+
+// TestShowWelcomeMessage tests the ASCII art logo display
+func TestShowWelcomeMessage(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Call the function
+	showWelcomeMessage()
+
+	// Restore stdout and read captured output
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Verify the output contains expected elements
+	expectedStrings := []string{
+		"██████", // Part of ASCII art
+		"Professional 4K Video Creator",
+		"Ken Burns Effects",
+		"Hardware Acceleration",
+		"Starting Go24K Video Generation",
+	}
+
+	for _, expected := range expectedStrings {
+		if !strings.Contains(output, expected) {
+			t.Errorf("Welcome message missing expected string: %s", expected)
+		}
+	}
+
+	// Verify ASCII art box characters are present
+	if !strings.Contains(output, "╔") || !strings.Contains(output, "╚") {
+		t.Error("Welcome message missing ASCII art box characters")
+	}
+
+	// Verify emojis are present
+	if !strings.Contains(output, "🎬") || !strings.Contains(output, "🚀") {
+		t.Error("Welcome message missing expected emojis")
 	}
 }
 
