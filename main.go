@@ -8,26 +8,6 @@ import (
 	"go24k/utils"
 )
 
-// showWelcomeMessage displays the Go24K ASCII art logo and welcome message
-func showWelcomeMessage() {
-	fmt.Print(`
-╔══════════════════════════════════════════════════════════════════╗
-║                                                                  ║
-║     ██████   ██████  ██████  ██   ██ ██   ██                    ║
-║    ██       ██    ██      ██ ██   ██ ██  ██                     ║
-║    ██   ███ ██    ██  █████  ███████ █████                      ║
-║    ██    ██ ██    ██ ██      ██   ██ ██  ██                     ║
-║     ██████   ██████  ███████ ██   ██ ██   ██                    ║
-║                                                                  ║
-║    🎬 Professional 4K Video Creator from Images 🎥              ║
-║    📸 Ken Burns Effects • Hardware Acceleration • 4K Quality     ║
-║                                                                  ║
-╚══════════════════════════════════════════════════════════════════╝
-`)
-	fmt.Println("🚀 Starting Go24K Video Generation...")
-	fmt.Println()
-}
-
 func main() {
 	// Set up command-line flags.
 	convertOnly := flag.Bool("convert-only", false, "Convert images only, without generating the video")
@@ -42,9 +22,6 @@ func main() {
 		utils.ShowEnvironmentInfo()
 		return
 	}
-
-	// Show welcome message with ASCII art logo
-	showWelcomeMessage()
 
 	startTime := time.Now()
 
