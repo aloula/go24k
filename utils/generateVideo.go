@@ -191,7 +191,7 @@ func getOptimalVideoSettings() []string {
 	} else if hasMediaFoundation {
 		// Windows Media Foundation (Snapdragon X, Intel QuickSync, AMD)
 		// Tested on Snapdragon X Plus: ~5 seconds faster encoding (25.7s vs ~30s CPU)
-		fmt.Printf("🧠 Hardware: Media Foundation detected - using Windows hardware acceleration\n")
+		fmt.Printf("Hardware: Media Foundation detected - using Windows hardware acceleration\n")
 		settings = append(settings,
 			"-c:v", "h264_mf",
 			"-quality", "quality", // Use quality mode
@@ -231,7 +231,7 @@ func getOptimalVideoSettings() []string {
 		)
 	} else if hasVAAPI {
 		// Linux VAAPI (Intel/AMD integrated graphics)
-		fmt.Printf("🐧 Hardware: VAAPI detected - using Linux hardware acceleration\n")
+		fmt.Printf("Hardware: VAAPI detected - using Linux hardware acceleration\n")
 		settings = append(settings,
 			"-c:v", "h264_vaapi",
 			"-profile:v", "high",
@@ -385,7 +385,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 
 	// Check if we have enough images to create a video
 	if len(files) == 0 {
-		log.Fatalf("❌ No converted images found in 'converted/' directory.\nPlease convert your images first using the image conversion feature.")
+		log.Fatalf("No converted images found in 'converted/' directory.\nPlease convert your images first using the image conversion feature.")
 	}
 
 	if len(files) < 2 {
