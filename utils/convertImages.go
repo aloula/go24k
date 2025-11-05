@@ -52,7 +52,7 @@ func ConvertImages() error {
 
 	for i, file := range files {
 		// Simple progress indicator
-		fmt.Printf("[%d/%d] %s\n", i+1, fileCount, filepath.Base(file))
+		fmt.Printf("[%d/%d] Processing %s\n", i+1, fileCount, filepath.Base(file))
 
 		// Get original file size
 		if info, err := os.Stat(file); err == nil {
@@ -94,9 +94,10 @@ func ConvertImages() error {
 		}
 	}
 
-	// Display simple completion message
+	// Display final statistics
 	elapsed := time.Since(startTime)
-	fmt.Printf("Conversion completed in %.1f seconds\n", elapsed.Seconds())
+	fmt.Printf("Converted %d images in %.1f seconds\n", fileCount, elapsed.Seconds())
+	fmt.Printf("Total size: %.1f MB\n\n", float64(totalConvertedSize)/(1024*1024))
 
 	return nil
 }
