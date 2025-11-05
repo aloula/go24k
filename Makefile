@@ -55,6 +55,11 @@ lint:
 	@echo "🔍 Executando análise estática..."
 	./test.sh lint
 
+# Análise com golangci-lint
+lint-modern:
+	@echo "🔍 Executando golangci-lint..."
+	~/go/bin/golangci-lint run
+
 # Instalar dependências de desenvolvimento
 dev-deps:
 	@echo "📦 Instalando dependências de desenvolvimento..."
@@ -99,16 +104,16 @@ uninstall:
 	@echo "✅ Go24K removido do sistema"
 
 # Executar em modo de desenvolvimento
-dev: fmt lint test-unit
+dev: fmt lint-modern test-unit
 	@echo "🚀 Modo desenvolvimento ativo"
 
 # Release - preparar para release
-release: clean lint test build-all
+release: clean lint-modern test build-all
 	@echo "🎉 Release preparado!"
 	@echo "📦 Binários disponíveis em: $(BUILD_DIR)/"
 
 # Verificação rápida antes de commit
-check: fmt lint test-unit
+check: fmt lint-modern test-unit
 	@echo "✅ Verificações pré-commit concluídas"
 
 # Docker build (se houver Dockerfile no futuro)
@@ -127,10 +132,11 @@ help:
 	@echo "  make clean         Limpar arquivos gerados"
 	@echo ""
 	@echo "Desenvolvimento:"
-	@echo "  make dev           Modo desenvolvimento (fmt + lint + test-unit)"
-	@echo "  make check         Verificação pré-commit"
+	@echo "  make dev           Modo desenvolvimento (fmt + lint-modern + test-unit)"
+	@echo "  make check         Verificação pré-commit (fmt + lint-modern + test-unit)"
 	@echo "  make fmt           Formatar código"
-	@echo "  make lint          Análise estática"
+	@echo "  make lint          Análise estática (tradicional)"
+	@echo "  make lint-modern   Análise estática (golangci-lint)"
 	@echo "  make coverage      Gerar relatório de cobertura"
 	@echo ""
 	@echo "Testes:"

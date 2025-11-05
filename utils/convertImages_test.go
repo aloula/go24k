@@ -61,7 +61,7 @@ func setupTestDir(t *testing.T) string {
 
 	// Store original directory in test context
 	t.Cleanup(func() {
-		os.Chdir(originalDir)
+		_ = os.Chdir(originalDir) // Ignore error in cleanup
 		os.RemoveAll(tempDir)
 	})
 
@@ -252,7 +252,7 @@ func TestConvertImages_ErrorCases(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create corrupted file: %v", err)
 		}
-		corruptedFile.WriteString("this is not a jpeg file")
+		_, _ = corruptedFile.WriteString("this is not a jpeg file") // Ignore error for test data
 		corruptedFile.Close()
 
 		err = ConvertImages()
@@ -273,7 +273,7 @@ func TestConvertImages_ErrorCases(t *testing.T) {
 		createTestImage(t, "readonly_test2.jpg", 1920, 1080)
 
 		// Try to create converted directory as read-only (this test may be platform specific)
-		os.MkdirAll("converted", 0444) // Read-only permissions
+		_ = os.MkdirAll("converted", 0444) // Read-only permissions, ignore error for test
 
 		// Remove converted dir for clean test
 		os.RemoveAll("converted")
@@ -457,22 +457,22 @@ func BenchmarkConvertImages_SingleImage(b *testing.B) {
 	defer os.RemoveAll(tempDir)
 
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
+	defer func() { _ = os.Chdir(originalDir) }() // Ignore error in defer
 
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
 
 		// Clean and setup for each iteration
-		os.Chdir(originalDir)
+		_ = os.Chdir(originalDir) // Ignore error in benchmark
 		os.RemoveAll(tempDir)
-		os.MkdirAll(tempDir, os.ModePerm)
-		os.Chdir(tempDir)
+		_ = os.MkdirAll(tempDir, os.ModePerm) // Ignore error in benchmark
+		_ = os.Chdir(tempDir)                 // Ignore error in benchmark
 
 		// Create test image
 		// Create test image for benchmark
 		img := image.NewRGBA(image.Rect(0, 0, 4032, 3024))
 		file, _ := os.Create("test.jpg")
-		jpeg.Encode(file, img, &jpeg.Options{Quality: 90})
+		_ = jpeg.Encode(file, img, &jpeg.Options{Quality: 90}) // Ignore error in benchmark
 		file.Close()
 
 		b.StartTimer()
@@ -494,13 +494,13 @@ func BenchmarkFetchImageTimestamp(b *testing.B) {
 	defer os.RemoveAll(tempDir)
 
 	originalDir, _ := os.Getwd()
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	defer func() { _ = os.Chdir(originalDir) }() // Ignore error in defer
+	_ = os.Chdir(tempDir)                        // Ignore error in benchmark
 
 	// Create test image
 	img := image.NewRGBA(image.Rect(0, 0, 800, 600))
 	file, _ := os.Create("benchmark.jpg")
-	jpeg.Encode(file, img, &jpeg.Options{Quality: 90})
+	_ = jpeg.Encode(file, img, &jpeg.Options{Quality: 90}) // Ignore error in benchmark
 	file.Close()
 
 	b.ResetTimer()

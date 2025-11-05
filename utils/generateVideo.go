@@ -12,9 +12,11 @@ import (
 	"time"
 )
 
+const linuxOS = "linux"
+
 // isWSL detects if we're running in Windows Subsystem for Linux
 func isWSL() bool {
-	if runtime.GOOS != "linux" {
+	if runtime.GOOS != linuxOS {
 		return false
 	}
 
@@ -191,6 +193,7 @@ func getOptimalVideoSettings() []string {
 	} else if hasMediaFoundation {
 		// Windows Media Foundation (Snapdragon X, Intel QuickSync, AMD)
 		// Tested on Snapdragon X Plus: ~5 seconds faster encoding (25.7s vs ~30s CPU)
+		// Optimized bitrate settings to match NVENC performance (15 Mbps target)
 		fmt.Printf("Hardware: Media Foundation detected - using Windows hardware acceleration\n")
 		settings = append(settings,
 			"-c:v", "h264_mf",
@@ -199,9 +202,9 @@ func getOptimalVideoSettings() []string {
 			"-scenario", "display_remoting", // Optimized for high-quality encoding
 			"-profile:v", "high",
 			"-level", "5.1",
-			"-b:v", "8M", // Target bitrate
-			"-maxrate", "12M",
-			"-bufsize", "16M",
+			"-b:v", "12M", // Increased target bitrate (was 8M)
+			"-maxrate", "18M", // Increased max bitrate to exceed NVENC (was 12M)
+			"-bufsize", "36M", // Doubled buffer size for smoother encoding (was 16M)
 		)
 	} else if hasQSV {
 		// Intel Quick Sync Video
@@ -262,7 +265,7 @@ func ShowEnvironmentInfo() {
 	fmt.Printf("Operating System: %s\n", runtime.GOOS)
 	fmt.Printf("Architecture: %s\n", runtime.GOARCH)
 
-	if runtime.GOOS == "linux" {
+	if runtime.GOOS == linuxOS {
 		if isWSL() {
 			fmt.Printf("Environment: WSL (Windows Subsystem for Linux)\n")
 		} else {

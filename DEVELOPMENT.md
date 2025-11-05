@@ -43,3 +43,57 @@ If you see "No packages found" errors in VS Code:
 For other editors, add these flags to your Go tooling configuration:
 - Build flags: `-tags=integration`
 - Environment: `GOFLAGS=-tags=integration`
+
+## Code Quality and Linting
+
+### golangci-lint Setup
+
+The project uses `golangci-lint` for comprehensive code analysis. Install it using:
+
+```bash
+# Automatic installation (recommended)
+./install-linter.sh
+
+# Manual installation
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+```
+
+### Running Linters
+
+```bash
+# Modern linter (recommended)
+make lint-modern
+# or directly:
+golangci-lint run
+
+# Traditional linter (via test.sh)
+make lint
+
+# Quick analysis
+golangci-lint run --fast
+
+# Auto-fix issues
+golangci-lint run --fix
+```
+
+### Linter Configuration
+
+The project includes `.golangci.yml` with optimized settings:
+- Focuses on important issues (errcheck, gosimple, etc.)
+- Relaxed rules for test files
+- Appropriate complexity limits for video processing code
+- Security checks for production code
+
+### Pre-commit Checks
+
+Before committing code:
+
+```bash
+# Full check pipeline
+make check
+
+# Or step by step:
+make fmt          # Format code
+make lint-modern  # Static analysis
+make test-unit    # Unit tests
+```
