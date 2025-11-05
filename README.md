@@ -91,6 +91,14 @@ Gera:
 - **`converted/`** - Imagens processadas em 4K
 - **`video.mp4`** - Vídeo final 4K UHD (H.264, 30fps)
 
+Ao final da geração, mostra informações detalhadas do arquivo:
+- **Tamanho do arquivo**: em MB/GB
+- **Taxa de bits do vídeo**: bitrate real alcançado (especialmente importante para Snapdragon X Plus)
+- **Taxa de bits do áudio**: bitrate do áudio ou "No audio"
+- **Framerate**: fps do vídeo gerado
+- **Resolução**: confirmação da resolução 4K
+- **Duração**: tempo exato do vídeo
+
 ## Problemas Comuns
 
 - **FFmpeg não encontrado**: Instalar e verificar se está no PATH

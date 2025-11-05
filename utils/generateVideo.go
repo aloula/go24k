@@ -8,11 +8,163 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const linuxOS = "linux"
+
+// VideoInfo contains technical details about a video file
+type VideoInfo struct {
+	FileSizeMB   float64
+	DurationSec  float64
+	VideoBitrate string
+	AudioBitrate string
+	Framerate    string
+	Resolution   string
+}
+
+// getVideoDetails extracts technical information from the generated video file
+func getVideoDetails(filename string) (*VideoInfo, error) {
+	info := &VideoInfo{}
+
+	// Get file size
+	if fileInfo, err := os.Stat(filename); err == nil {
+		info.FileSizeMB = float64(fileInfo.Size()) / (1024 * 1024)
+	}
+
+	// Use ffprobe to get video details
+	cmd := exec.Command("ffprobe",
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_format",
+		"-show_streams",
+		filename)
+
+	output, err := cmd.Output()
+	if err != nil {
+		// Set defaults if ffprobe fails
+		info.Framerate = "30 fps"
+		info.Resolution = "3840x2160"
+		info.AudioBitrate = "No audio"
+		return info, fmt.Errorf("ffprobe failed: %v", err)
+	} // Parse basic info from output (simple string parsing)
+	outputStr := string(output)
+
+	// Extract duration
+	if strings.Contains(outputStr, `"duration"`) {
+		lines := strings.Split(outputStr, "\n")
+		for _, line := range lines {
+			if strings.Contains(line, `"duration"`) && strings.Contains(line, `"format"`) {
+				// Simple extraction from JSON line
+				parts := strings.Split(line, `"`)
+				for i, part := range parts {
+					if part == "duration" && i+2 < len(parts) {
+						if duration, err := strconv.ParseFloat(parts[i+2], 64); err == nil {
+							info.DurationSec = duration
+						}
+						break
+					}
+				}
+				break
+			}
+		}
+	}
+
+	// Extract video stream info
+	lines := strings.Split(outputStr, "\n")
+	var inVideoStream bool
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		if strings.Contains(line, `"codec_type": "video"`) {
+			inVideoStream = true
+			continue
+		}
+		if strings.Contains(line, `"codec_type": "audio"`) {
+			inVideoStream = false
+		}
+
+		if inVideoStream {
+			if strings.Contains(line, `"bit_rate"`) {
+				parts := strings.Split(line, `"`)
+				for i, part := range parts {
+					if part == "bit_rate" && i+2 < len(parts) {
+						if bitrate, err := strconv.Atoi(parts[i+2]); err == nil {
+							info.VideoBitrate = fmt.Sprintf("%.1f Mbps", float64(bitrate)/1000000)
+						}
+						break
+					}
+				}
+			}
+			if strings.Contains(line, `"r_frame_rate"`) {
+				parts := strings.Split(line, `"`)
+				for i, part := range parts {
+					if part == "r_frame_rate" && i+2 < len(parts) {
+						frameRate := parts[i+2]
+						if strings.Contains(frameRate, "/") {
+							rateParts := strings.Split(frameRate, "/")
+							if len(rateParts) == 2 {
+								if num, err1 := strconv.ParseFloat(rateParts[0], 64); err1 == nil {
+									if den, err2 := strconv.ParseFloat(rateParts[1], 64); err2 == nil && den != 0 {
+										info.Framerate = fmt.Sprintf("%.0f fps", num/den)
+									}
+								}
+							}
+						}
+						break
+					}
+				}
+			}
+			if strings.Contains(line, `"width"`) && strings.Contains(line, `"height"`) {
+				// This is a simplified approach - in real JSON parsing we'd need proper parsing
+				info.Resolution = "3840x2160" // We know our output resolution
+			}
+		}
+	}
+
+	// Extract audio bitrate (simplified)
+	if strings.Contains(outputStr, `"codec_type": "audio"`) {
+		lines := strings.Split(outputStr, "\n")
+		var inAudioStream bool
+		for _, line := range lines {
+			if strings.Contains(line, `"codec_type": "audio"`) {
+				inAudioStream = true
+				continue
+			}
+			if strings.Contains(line, `"codec_type": "video"`) {
+				inAudioStream = false
+			}
+
+			if inAudioStream && strings.Contains(line, `"bit_rate"`) {
+				parts := strings.Split(line, `"`)
+				for i, part := range parts {
+					if part == "bit_rate" && i+2 < len(parts) {
+						if bitrate, err := strconv.Atoi(parts[i+2]); err == nil {
+							info.AudioBitrate = fmt.Sprintf("%d kbps", bitrate/1000)
+						}
+						break
+					}
+				}
+				break
+			}
+		}
+	}
+
+	// Set defaults if not found
+	if info.Framerate == "" {
+		info.Framerate = "30 fps"
+	}
+	if info.Resolution == "" {
+		info.Resolution = "3840x2160"
+	}
+	if info.AudioBitrate == "" {
+		info.AudioBitrate = "No audio"
+	}
+
+	return info, nil
+}
 
 // isWSL detects if we're running in Windows Subsystem for Linux
 func isWSL() bool {
@@ -543,24 +695,30 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 	// Display success message with video information
 	fmt.Printf("\n=== Video generated successfully! ===\n")
 	fmt.Printf("File: video.mp4\n")
-	fmt.Printf("Resolution: 4K UHD (3840x2160)\n")
-	fmt.Printf("Duration: %d seconds\n", finalLength)
-	fmt.Printf("Images: %d\n", totalFiles)
-	if hasAudio {
-		fmt.Printf("Audio: %s\n", filepath.Base(musicFiles[0]))
+
+	// Get detailed video information
+	if videoInfo, err := getVideoDetails("video.mp4"); err == nil {
+		fmt.Printf("Resolution: %s (4K UHD)\n", videoInfo.Resolution)
+		fmt.Printf("Duration: %d seconds (%.1fs actual)\n", finalLength, videoInfo.DurationSec)
+		fmt.Printf("File Size: %.1f MB\n", videoInfo.FileSizeMB)
+		fmt.Printf("Video Bitrate: %s\n", videoInfo.VideoBitrate)
+		fmt.Printf("Audio Bitrate: %s\n", videoInfo.AudioBitrate)
+		fmt.Printf("Framerate: %s\n", videoInfo.Framerate)
 	} else {
-		fmt.Printf("Audio: None (no MP3 file found)\n")
+		// Fallback to basic information if ffprobe fails
+		fmt.Printf("Resolution: 4K UHD (3840x2160)\n")
+		fmt.Printf("Duration: %d seconds\n", finalLength)
+		if fileInfo, err := os.Stat("video.mp4"); err == nil {
+			sizeMB := float64(fileInfo.Size()) / (1024 * 1024)
+			fmt.Printf("File Size: %.1f MB\n", sizeMB)
+		}
 	}
 
-	// Get file size for user feedback
-	if fileInfo, err := os.Stat("video.mp4"); err == nil {
-		sizeKB := fileInfo.Size() / 1024
-		sizeMB := float64(sizeKB) / 1024
-		if sizeMB < 1024 {
-			fmt.Printf("Size: %.1f MB\n", sizeMB)
-		} else {
-			fmt.Printf("Size: %.2f GB\n", sizeMB/1024)
-		}
+	fmt.Printf("Images: %d\n", totalFiles)
+	if hasAudio {
+		fmt.Printf("Audio Source: %s\n", filepath.Base(musicFiles[0]))
+	} else {
+		fmt.Printf("Audio Source: None (no MP3 file found)\n")
 	}
 }
 

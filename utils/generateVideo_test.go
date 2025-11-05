@@ -445,3 +445,40 @@ func BenchmarkKenBurnsEffect(b *testing.B) {
 		getKenBurnsEffect(5)
 	}
 }
+
+func TestGetVideoDetails(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+		wantErr  bool
+	}{
+		{"Non-existent file", "non_existent_file.mp4", true},
+		{"Empty filename", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info, err := getVideoDetails(tt.filename)
+
+			if tt.wantErr && err == nil {
+				t.Errorf("getVideoDetails(%s) expected error but got none", tt.filename)
+			}
+
+			// Even on error, we should get a valid info struct with defaults
+			if info == nil {
+				t.Errorf("getVideoDetails(%s) returned nil info", tt.filename)
+			} else {
+				// Check that defaults are set
+				if info.Framerate == "" {
+					t.Errorf("getVideoDetails(%s) should set default framerate", tt.filename)
+				}
+				if info.Resolution == "" {
+					t.Errorf("getVideoDetails(%s) should set default resolution", tt.filename)
+				}
+				if info.AudioBitrate == "" {
+					t.Errorf("getVideoDetails(%s) should set default audio bitrate", tt.filename)
+				}
+			}
+		})
+	}
+}
