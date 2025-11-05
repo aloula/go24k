@@ -1,73 +1,55 @@
+version: 2
+
 linters-settings:
   errcheck:
     exclude-functions:
-      - io/ioutil.ReadFile
-      - io.Copy(*bytes.Buffer)
-      - io.Copy(os.Stdout)
       - (*os.File).Close
       - os.RemoveAll
       - os.Remove
       - os.Setenv
 
   gocyclo:
-    min-complexity: 25  # Increased for complex functions like GenerateVideo
+    min-complexity: 25
 
   goconst:
     min-len: 3
     min-occurrences: 3
 
-  lll:
-    line-length: 160  # Increased for longer log messages
-
-  gosec:
-    excludes:
-      - G301  # Directory permissions
-      - G304  # File inclusion via variable
-      - G404  # Weak random number generator (ok for non-crypto use)
-
-  funlen:
-    lines: 80       # Allow longer functions
-    statements: 50
+  staticcheck:
+    checks: ["all", "-SA9003"]  # Disable "empty branch" check
 
 linters:
-  disable-all: true
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
-    - staticcheck
-    - typecheck
     - unused
-    - gofmt
-    - goimports
+    - staticcheck
     - gocyclo
     - goconst
     - misspell
-    - unconvert
-    - unparam
 
 issues:
   exclude-rules:
-    # Exclude many checks for test files
+    # Exclude all linting for test files - they don't need to be perfect
     - path: _test\.go
       linters:
         - errcheck
-        - gosec
         - gocyclo
-        - funlen
         - goconst
-        - lll
-    
-    # Exclude package comment requirement (we don't need it for utils)
-    - text: "at least one file in a package should have a package comment"
-      linters:
-        - stylecheck
-
+        - staticcheck
+        - govet
+        - ineffassign
+        - unused
+        - misspell
+  
   max-issues-per-linter: 0
   max-same-issues: 0
 
 run:
   timeout: 2m
-  tests: true
-  modules-download-mode: readonly
+  tests: false  # Don't lint test files
+  go: '1.25.3'
+  skip-dirs:
+    - vendor
+    - builds

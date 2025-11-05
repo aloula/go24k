@@ -291,11 +291,7 @@ func TestMainValidation_ExtendedCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test validation logic
-			problematic := false
-
-			if tt.transition >= tt.duration && tt.duration > 0 {
-				problematic = true
-			}
+			problematic := tt.transition >= tt.duration && tt.duration > 0
 
 			if tt.duration <= 0 {
 				problematic = true

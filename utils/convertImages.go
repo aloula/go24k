@@ -109,7 +109,9 @@ func FetchImageTimestamp(filename string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close() // Ignore close errors in defer
+	}()
 
 	x, err := exif.Decode(file)
 	if err != nil {

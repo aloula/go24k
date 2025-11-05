@@ -468,12 +468,18 @@ func BenchmarkConvertImages_SingleImage(b *testing.B) {
 		_ = os.MkdirAll(tempDir, os.ModePerm) // Ignore error in benchmark
 		_ = os.Chdir(tempDir)                 // Ignore error in benchmark
 
-		// Create test image
-		// Create test image for benchmark
+		// Create test images (need at least 2 for video generation)
 		img := image.NewRGBA(image.Rect(0, 0, 4032, 3024))
-		file, _ := os.Create("test.jpg")
-		_ = jpeg.Encode(file, img, &jpeg.Options{Quality: 90}) // Ignore error in benchmark
-		file.Close()
+
+		// Create first test image
+		file1, _ := os.Create("test1.jpg")
+		_ = jpeg.Encode(file1, img, &jpeg.Options{Quality: 90}) // Ignore error in benchmark
+		_ = file1.Close()
+
+		// Create second test image
+		file2, _ := os.Create("test2.jpg")
+		_ = jpeg.Encode(file2, img, &jpeg.Options{Quality: 90}) // Ignore error in benchmark
+		_ = file2.Close()
 
 		b.StartTimer()
 
