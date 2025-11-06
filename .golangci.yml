@@ -1,5 +1,3 @@
-version: 2
-
 linters-settings:
   errcheck:
     exclude-functions:
@@ -16,7 +14,16 @@ linters-settings:
     min-occurrences: 3
 
   staticcheck:
-    checks: ["all", "-SA9003"]  # Disable "empty branch" check
+    checks: ["all", "-SA9003"]
+
+  revive:
+    rules:
+      - name: exported
+      - name: package-comments
+        disabled: true
+      - name: var-naming
+      - name: function-result-limit
+        arguments: [3]
 
 linters:
   enable:
@@ -28,10 +35,11 @@ linters:
     - gocyclo
     - goconst
     - misspell
+    - revive
+    - stylecheck
 
 issues:
   exclude-rules:
-    # Exclude all linting for test files - they don't need to be perfect
     - path: _test\.go
       linters:
         - errcheck
@@ -42,14 +50,17 @@ issues:
         - ineffassign
         - unused
         - misspell
+        - revive
+        - stylecheck
+  
+  exclude-dirs:
+    - vendor
+    - builds
   
   max-issues-per-linter: 0
   max-same-issues: 0
 
 run:
   timeout: 2m
-  tests: false  # Don't lint test files
-  go: '1.25.3'
-  skip-dirs:
-    - vendor
-    - builds
+  tests: false
+  go: '1.25.4'

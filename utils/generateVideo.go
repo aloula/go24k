@@ -13,7 +13,10 @@ import (
 	"time"
 )
 
-const linuxOS = "linux"
+const (
+	linuxOS      = "linux"
+	resolution4K = "3840x2160"
+)
 
 // VideoInfo contains technical details about a video file
 type VideoInfo struct {
@@ -25,16 +28,16 @@ type VideoInfo struct {
 	Resolution   string
 }
 
-// getVideoDetails extracts technical information from the generated video file
-func getVideoDetails(filename string) (*VideoInfo, error) {
-	info := &VideoInfo{}
-
-	// Get file size
+// getFileSize gets the file size in MB
+func getFileSize(filename string) float64 {
 	if fileInfo, err := os.Stat(filename); err == nil {
-		info.FileSizeMB = float64(fileInfo.Size()) / (1024 * 1024)
+		return float64(fileInfo.Size()) / (1024 * 1024)
 	}
+	return 0
+}
 
-	// Use ffprobe to get video details
+// runFFProbe executes ffprobe and returns the JSON output
+func runFFProbe(filename string) (string, error) {
 	cmd := exec.Command("ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
@@ -44,37 +47,70 @@ func getVideoDetails(filename string) (*VideoInfo, error) {
 
 	output, err := cmd.Output()
 	if err != nil {
+		return "", fmt.Errorf("ffprobe failed: %v", err)
+	}
+	return string(output), nil
+}
+
+// getVideoDetails extracts technical information from the generated video file
+func getVideoDetails(filename string) (*VideoInfo, error) {
+	info := &VideoInfo{}
+	info.FileSizeMB = getFileSize(filename)
+
+	outputStr, err := runFFProbe(filename)
+	if err != nil {
 		// Set defaults if ffprobe fails
 		info.Framerate = "30 fps"
-		info.Resolution = "3840x2160"
+		info.Resolution = resolution4K
 		info.AudioBitrate = "No audio"
-		return info, fmt.Errorf("ffprobe failed: %v", err)
-	} // Parse basic info from output (simple string parsing)
-	outputStr := string(output)
+		return info, err
+	}
 
-	// Extract duration
-	if strings.Contains(outputStr, `"duration"`) {
-		lines := strings.Split(outputStr, "\n")
-		for _, line := range lines {
-			if strings.Contains(line, `"duration"`) && strings.Contains(line, `"format"`) {
-				// Simple extraction from JSON line
-				parts := strings.Split(line, `"`)
-				for i, part := range parts {
-					if part == "duration" && i+2 < len(parts) {
-						if duration, err := strconv.ParseFloat(parts[i+2], 64); err == nil {
-							info.DurationSec = duration
-						}
-						break
+	info.DurationSec = extractDuration(outputStr)
+	info.VideoBitrate, info.Framerate, info.Resolution = extractVideoInfo(outputStr)
+	info.AudioBitrate = extractAudioInfo(outputStr)
+
+	// Set defaults if not found
+	if info.Framerate == "" {
+		info.Framerate = "30 fps"
+	}
+	if info.Resolution == "" {
+		info.Resolution = resolution4K
+	}
+	if info.AudioBitrate == "" {
+		info.AudioBitrate = "No audio"
+	}
+
+	return info, nil
+}
+
+// extractDuration parses duration from ffprobe JSON output
+func extractDuration(outputStr string) float64 {
+	if !strings.Contains(outputStr, `"duration"`) {
+		return 0
+	}
+
+	lines := strings.Split(outputStr, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, `"duration"`) && strings.Contains(line, `"format"`) {
+			parts := strings.Split(line, `"`)
+			for i, part := range parts {
+				if part == "duration" && i+2 < len(parts) {
+					if duration, err := strconv.ParseFloat(parts[i+2], 64); err == nil {
+						return duration
 					}
 				}
-				break
 			}
 		}
 	}
+	return 0
+}
 
-	// Extract video stream info
+// extractVideoInfo parses video stream information from ffprobe output
+func extractVideoInfo(outputStr string) (bitrate, framerate, resolution string) {
 	lines := strings.Split(outputStr, "\n")
 	var inVideoStream bool
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
@@ -87,18 +123,18 @@ func getVideoDetails(filename string) (*VideoInfo, error) {
 		}
 
 		if inVideoStream {
-			if strings.Contains(line, `"bit_rate"`) {
+			if strings.Contains(line, `"bit_rate"`) && bitrate == "" {
 				parts := strings.Split(line, `"`)
 				for i, part := range parts {
 					if part == "bit_rate" && i+2 < len(parts) {
-						if bitrate, err := strconv.Atoi(parts[i+2]); err == nil {
-							info.VideoBitrate = fmt.Sprintf("%.1f Mbps", float64(bitrate)/1000000)
+						if br, err := strconv.Atoi(parts[i+2]); err == nil {
+							bitrate = fmt.Sprintf("%.1f Mbps", float64(br)/1000000)
 						}
 						break
 					}
 				}
 			}
-			if strings.Contains(line, `"r_frame_rate"`) {
+			if strings.Contains(line, `"r_frame_rate"`) && framerate == "" {
 				parts := strings.Split(line, `"`)
 				for i, part := range parts {
 					if part == "r_frame_rate" && i+2 < len(parts) {
@@ -108,7 +144,7 @@ func getVideoDetails(filename string) (*VideoInfo, error) {
 							if len(rateParts) == 2 {
 								if num, err1 := strconv.ParseFloat(rateParts[0], 64); err1 == nil {
 									if den, err2 := strconv.ParseFloat(rateParts[1], 64); err2 == nil && den != 0 {
-										info.Framerate = fmt.Sprintf("%.0f fps", num/den)
+										framerate = fmt.Sprintf("%.0f fps", num/den)
 									}
 								}
 							}
@@ -117,53 +153,45 @@ func getVideoDetails(filename string) (*VideoInfo, error) {
 					}
 				}
 			}
-			if strings.Contains(line, `"width"`) && strings.Contains(line, `"height"`) {
-				// This is a simplified approach - in real JSON parsing we'd need proper parsing
-				info.Resolution = "3840x2160" // We know our output resolution
+			if strings.Contains(line, `"width"`) && strings.Contains(line, `"height"`) && resolution == "" {
+				resolution = resolution4K // We know our output resolution
 			}
 		}
 	}
+	return bitrate, framerate, resolution
+}
 
-	// Extract audio bitrate (simplified)
-	if strings.Contains(outputStr, `"codec_type": "audio"`) {
-		lines := strings.Split(outputStr, "\n")
-		var inAudioStream bool
-		for _, line := range lines {
-			if strings.Contains(line, `"codec_type": "audio"`) {
-				inAudioStream = true
-				continue
-			}
-			if strings.Contains(line, `"codec_type": "video"`) {
-				inAudioStream = false
-			}
+// extractAudioInfo parses audio bitrate from ffprobe output
+func extractAudioInfo(outputStr string) string {
+	if !strings.Contains(outputStr, `"codec_type": "audio"`) {
+		return ""
+	}
 
-			if inAudioStream && strings.Contains(line, `"bit_rate"`) {
-				parts := strings.Split(line, `"`)
-				for i, part := range parts {
-					if part == "bit_rate" && i+2 < len(parts) {
-						if bitrate, err := strconv.Atoi(parts[i+2]); err == nil {
-							info.AudioBitrate = fmt.Sprintf("%d kbps", bitrate/1000)
-						}
-						break
+	lines := strings.Split(outputStr, "\n")
+	var inAudioStream bool
+
+	for _, line := range lines {
+		if strings.Contains(line, `"codec_type": "audio"`) {
+			inAudioStream = true
+			continue
+		}
+		if strings.Contains(line, `"codec_type": "video"`) {
+			inAudioStream = false
+		}
+
+		if inAudioStream && strings.Contains(line, `"bit_rate"`) {
+			parts := strings.Split(line, `"`)
+			for i, part := range parts {
+				if part == "bit_rate" && i+2 < len(parts) {
+					if bitrate, err := strconv.Atoi(parts[i+2]); err == nil {
+						return fmt.Sprintf("%d kbps", bitrate/1000)
 					}
 				}
-				break
 			}
+			break
 		}
 	}
-
-	// Set defaults if not found
-	if info.Framerate == "" {
-		info.Framerate = "30 fps"
-	}
-	if info.Resolution == "" {
-		info.Resolution = "3840x2160"
-	}
-	if info.AudioBitrate == "" {
-		info.AudioBitrate = "No audio"
-	}
-
-	return info, nil
+	return ""
 }
 
 // isWSL detects if we're running in Windows Subsystem for Linux
@@ -310,7 +338,7 @@ func getOptimalVideoSettings() []string {
 		"-pix_fmt", "yuv420p",
 		"-movflags", "+faststart",
 		"-r", "30",
-		"-s", "3840x2160",
+		"-s", resolution4K,
 	}
 
 	// Priority order: NVENC > VideoToolbox (macOS) > Media Foundation (Windows) > QSV > AMF > VAAPI > CPU
@@ -528,11 +556,11 @@ func ShowEnvironmentInfo() {
 	fmt.Printf("  • Hardware encoders use equivalent quality settings\n")
 }
 
-// GenerateVideo creates a video from already 3840x2160 images with crossfade transitions,
+// GenerateVideo creates a video from already 4K images with crossfade transitions,
 // audio fades, and optionally a Ken Burns effect applied to each image.
 // If applyKenBurns is false, the images remain static.
 func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
-	// Find all converted .jpg files (3840x2160).
+	// Find all converted .jpg files (4K resolution).
 	files, err := filepath.Glob("converted/*.jpg")
 	if err != nil {
 		log.Fatalf("Failed to list converted .jpg files: %v", err)
@@ -702,7 +730,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 		fmt.Printf("Framerate: %s\n", videoInfo.Framerate)
 	} else {
 		// Fallback to basic information if ffprobe fails
-		fmt.Printf("Resolution: 4K UHD (3840x2160)\n")
+		fmt.Printf("Resolution: 4K UHD (%s)\n", resolution4K)
 		fmt.Printf("Duration: %d sec.\n", finalLength)
 		if fileInfo, err := os.Stat("video.mp4"); err == nil {
 			sizeMB := float64(fileInfo.Size()) / (1024 * 1024)
@@ -720,15 +748,15 @@ func getKenBurnsEffect(duration int) string {
 
 	// Define nine variants based on different focal positions with softer effects
 	// Zoom speed reduced from 0.001 to 0.0005, max zoom reduced from 1.5 to 1.3
-	centerExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
-	topLeftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
-	topRightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
-	bottomLeftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
-	bottomRightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
-	leftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
-	rightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)':d=%d:s=3840x2160"
-	topExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)-%d':d=%d:s=3840x2160"
-	bottomExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)+%d':d=%d:s=3840x2160"
+	centerExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=%d:s=" + resolution4K
+	topLeftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)-%d':d=%d:s=" + resolution4K
+	topRightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)-%d':d=%d:s=" + resolution4K
+	bottomLeftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)+%d':d=%d:s=" + resolution4K
+	bottomRightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)+%d':d=%d:s=" + resolution4K
+	leftExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)-%d':y='ih/2-(ih/zoom/2)':d=%d:s=" + resolution4K
+	rightExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)+%d':y='ih/2-(ih/zoom/2)':d=%d:s=" + resolution4K
+	topExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)-%d':d=%d:s=" + resolution4K
+	bottomExpr := "zoompan=zoom='min(zoom+0.0005,1.3)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)+%d':d=%d:s=" + resolution4K
 
 	// Create a slice with formatted expressions.
 	var variants []string
