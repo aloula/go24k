@@ -52,16 +52,14 @@ coverage:
 
 # Análise estática
 lint:
-	@echo "Running linter..."
-	~/go/bin/golangci-lint run --timeout 2m
+	@echo "🔍 Executando golangci-lint..."
+	golangci-lint run --timeout 2m
 
-# Análise com golangci-lint (desabilitada temporariamente devido à incompatibilidade com Go 1.23.6)
+# Análise com golangci-lint moderno (revive + stylecheck)
 lint-modern:
-	@echo "⚠️  golangci-lint temporariamente desabilitado (incompatibilidade Go 1.23.6)"
-	@echo "🔍 Executando análise básica..."
-	@go vet ./...
-	@gofmt -l . | grep -v "^$$" && echo "❌ Arquivos precisam de formatação" || echo "✅ Formatação OK"
-	@echo "✅ Análise básica concluída"
+	@echo "🔍 Executando golangci-lint moderno..."
+	golangci-lint run --timeout 2m
+	@echo "✅ Análise moderna concluída"
 
 # Instalar dependências de desenvolvimento
 dev-deps:
