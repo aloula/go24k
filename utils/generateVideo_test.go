@@ -482,3 +482,71 @@ func TestGetVideoDetails(t *testing.T) {
 		})
 	}
 }
+
+func TestVideoInfo_DefaultValues(t *testing.T) {
+	// Test that VideoInfo struct has proper default behavior
+	info := &VideoInfo{}
+
+	// Initial state should be zero values
+	if info.FileSizeMB != 0 {
+		t.Errorf("Expected FileSizeMB to be 0, got %f", info.FileSizeMB)
+	}
+	if info.DurationSec != 0 {
+		t.Errorf("Expected DurationSec to be 0, got %f", info.DurationSec)
+	}
+	if info.VideoBitrate != "" {
+		t.Errorf("Expected VideoBitrate to be empty, got %s", info.VideoBitrate)
+	}
+	if info.AudioBitrate != "" {
+		t.Errorf("Expected AudioBitrate to be empty, got %s", info.AudioBitrate)
+	}
+	if info.Framerate != "" {
+		t.Errorf("Expected Framerate to be empty, got %s", info.Framerate)
+	}
+	if info.Resolution != "" {
+		t.Errorf("Expected Resolution to be empty, got %s", info.Resolution)
+	}
+}
+
+func TestGetVideoDetails_ErrorHandling(t *testing.T) {
+	// Test with various invalid inputs
+	testCases := []string{
+		"",
+		"/dev/null",
+		"/nonexistent/path/video.mp4",
+		"../invalid/path.mp4",
+	}
+
+	for _, filename := range testCases {
+		t.Run("Invalid_file_"+filename, func(t *testing.T) {
+			info, err := getVideoDetails(filename)
+
+			// Should always return an info struct, even on error
+			if info == nil {
+				t.Fatalf("getVideoDetails should never return nil info")
+			}
+
+			// Error is expected for these cases
+			if err == nil && filename != "" {
+				t.Errorf("Expected error for filename %s", filename)
+			}
+
+			// Defaults should be set even on error
+			expectedDefaults := map[string]string{
+				"Framerate":    "30 fps",
+				"Resolution":   "3840x2160",
+				"AudioBitrate": "No audio",
+			}
+
+			if info.Framerate != expectedDefaults["Framerate"] {
+				t.Errorf("Expected default framerate %s, got %s", expectedDefaults["Framerate"], info.Framerate)
+			}
+			if info.Resolution != expectedDefaults["Resolution"] {
+				t.Errorf("Expected default resolution %s, got %s", expectedDefaults["Resolution"], info.Resolution)
+			}
+			if info.AudioBitrate != expectedDefaults["AudioBitrate"] {
+				t.Errorf("Expected default audio bitrate %s, got %s", expectedDefaults["AudioBitrate"], info.AudioBitrate)
+			}
+		})
+	}
+}

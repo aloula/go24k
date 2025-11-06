@@ -42,7 +42,6 @@ func main() {
 	// Report processing time (only if not convert-only since conversion already shows its time)
 	if !*convertOnly {
 		elapsedTime := time.Since(startTime).Seconds()
-		fmt.Printf("\nProcessing time: %.1f seconds\n", elapsedTime)
+		fmt.Printf("Total time: %.1f sec.\n", elapsedTime)
 	}
-	fmt.Println("Done!")
 }

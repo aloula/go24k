@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/rwcarlsen/goexif/exif"
@@ -47,12 +46,11 @@ func ConvertImages() error {
 	// Display simple conversion info
 	fmt.Printf("Converting %d images to 4K UHD...\n", fileCount)
 
-	startTime := time.Now()
 	var totalOriginalSize, totalConvertedSize int64
 
 	for i, file := range files {
 		// Simple progress indicator
-		fmt.Printf("[%d/%d] Processing %s\n", i+1, fileCount, filepath.Base(file))
+		fmt.Printf("[%d/%d] | %s...\n", i+1, fileCount, filepath.Base(file))
 
 		// Get original file size
 		if info, err := os.Stat(file); err == nil {
@@ -93,11 +91,6 @@ func ConvertImages() error {
 			totalConvertedSize += info.Size()
 		}
 	}
-
-	// Display final statistics
-	elapsed := time.Since(startTime)
-	fmt.Printf("Converted %d images in %.1f seconds\n", fileCount, elapsed.Seconds())
-	fmt.Printf("Total size: %.1f MB\n\n", float64(totalConvertedSize)/(1024*1024))
 
 	return nil
 }

@@ -518,3 +518,34 @@ func BenchmarkFetchImageTimestamp(b *testing.B) {
 		}
 	}
 }
+
+// TestConvertImages_OutputFormat tests that conversion works with updated progress format
+func TestConvertImages_OutputFormat(t *testing.T) {
+	tempDir := setupTestDir(t)
+
+	// Create test images
+	createTestImage(t, "format_test1.jpg", 1920, 1080)
+	createTestImage(t, "format_test2.jpg", 1920, 1080)
+
+	// Run conversion
+	err := ConvertImages()
+	if err != nil {
+		t.Fatalf("ConvertImages failed: %v", err)
+	}
+
+	// Verify converted files exist - use absolute paths
+	convertedDir := filepath.Join(tempDir, "converted")
+	convertedFiles, err := filepath.Glob(filepath.Join(convertedDir, "*.jpg"))
+	if err != nil {
+		t.Errorf("Failed to list converted files: %v", err)
+	}
+
+	if len(convertedFiles) != 2 {
+		t.Errorf("Expected 2 converted files, got %d", len(convertedFiles))
+	}
+
+	// Test that the function handles the new progress format correctly
+	// The actual format change is in the console output: "[1/2] | filename..."
+	// This test mainly ensures the function still works after format changes
+	t.Log("ConvertImages completed successfully with updated progress format")
+}

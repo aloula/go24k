@@ -547,11 +547,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 		log.Fatalf("Not enough images found. Need at least 2 images to create a video with transitions.\nFound: %d image(s) in 'converted/' directory.", len(files))
 	}
 
-	fmt.Printf("Found %d images ready for video generation:\n", len(files))
-	for i, file := range files {
-		fmt.Printf("  %d. %s\n", i+1, filepath.Base(file))
-	}
-	fmt.Println()
+	fmt.Printf("Generating video from %d images...\n", len(files))
 
 	index := 0
 	inputs := []string{}
@@ -679,7 +675,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 				fmt.Print("\r")
 				return
 			default:
-				fmt.Printf("\r%s...:   %s", message, spinnerChars[i%len(spinnerChars)])
+				fmt.Printf("\r%s %s...", spinnerChars[i%len(spinnerChars)], message)
 				i++
 				time.Sleep(200 * time.Millisecond)
 			}
@@ -699,7 +695,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 	// Get detailed video information
 	if videoInfo, err := getVideoDetails("video.mp4"); err == nil {
 		fmt.Printf("Resolution: %s (4K UHD)\n", videoInfo.Resolution)
-		fmt.Printf("Duration: %d seconds (%.1fs actual)\n", finalLength, videoInfo.DurationSec)
+		fmt.Printf("Duration: %d sec. (%.1fs actual)\n", finalLength, videoInfo.DurationSec)
 		fmt.Printf("File Size: %.1f MB\n", videoInfo.FileSizeMB)
 		fmt.Printf("Video Bitrate: %s\n", videoInfo.VideoBitrate)
 		fmt.Printf("Audio Bitrate: %s\n", videoInfo.AudioBitrate)
@@ -707,18 +703,11 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 	} else {
 		// Fallback to basic information if ffprobe fails
 		fmt.Printf("Resolution: 4K UHD (3840x2160)\n")
-		fmt.Printf("Duration: %d seconds\n", finalLength)
+		fmt.Printf("Duration: %d sec.\n", finalLength)
 		if fileInfo, err := os.Stat("video.mp4"); err == nil {
 			sizeMB := float64(fileInfo.Size()) / (1024 * 1024)
 			fmt.Printf("File Size: %.1f MB\n", sizeMB)
 		}
-	}
-
-	fmt.Printf("Images: %d\n", totalFiles)
-	if hasAudio {
-		fmt.Printf("Audio Source: %s\n", filepath.Base(musicFiles[0]))
-	} else {
-		fmt.Printf("Audio Source: None (no MP3 file found)\n")
 	}
 }
 
