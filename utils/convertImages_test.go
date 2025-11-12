@@ -575,9 +575,10 @@ func TestExtractCameraInfo(t *testing.T) {
 			t.Errorf("Expected no error for file without EXIF, got: %v", err)
 		}
 
-		// Should return empty struct, not nil
+		// Function should return empty struct, never nil when no error
 		if info == nil {
 			t.Error("Expected non-nil info even without EXIF data")
+			return // Early return to avoid nil pointer dereference
 		}
 
 		// All fields should be empty
@@ -588,9 +589,9 @@ func TestExtractCameraInfo(t *testing.T) {
 }
 
 func TestFormatCameraInfoOverlay(t *testing.T) {
-	// Get current date for test expectations
+	// Get current date for fallback test expectations
 	currentTime := time.Now()
-	dateStr := currentTime.Format("02/01/2006")
+	fallbackDateStr := currentTime.Format("02/01/2006")
 
 	tests := []struct {
 		name     string
@@ -608,7 +609,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 			expected: "",
 		},
 		{
-			name: "Full camera info",
+			name: "Full camera info with photo date",
 			info: &CameraInfo{
 				Make:         "Canon",
 				Model:        "EOS R5",
@@ -617,11 +618,12 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				ISO:          "ISO 400",
 				ExposureTime: "1/125s",
 				FNumber:      "f/2.8",
+				DateTaken:    "15/08/2024",
 			},
-			expected: fmt.Sprintf("Canon EOS R5 - 50mm | f/2.8 | ISO 400 - %s", dateStr),
+			expected: "Canon EOS R5 - 50mm | f/2.8 | ISO 400 - 15/08/2024",
 		},
 		{
-			name: "Camera without lens info",
+			name: "Camera without lens info with photo date",
 			info: &CameraInfo{
 				Make:         "Sony",
 				Model:        "A7R IV",
@@ -629,26 +631,28 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				ISO:          "ISO 800",
 				ExposureTime: "1/250s",
 				FNumber:      "f/1.4",
+				DateTaken:    "22/06/2024",
 			},
-			expected: fmt.Sprintf("Sony A7R IV - 85mm | f/1.4 | ISO 800 - %s", dateStr),
+			expected: "Sony A7R IV - 85mm | f/1.4 | ISO 800 - 22/06/2024",
 		},
 		{
-			name: "Only camera make and model",
+			name: "Only camera make and model with fallback date",
 			info: &CameraInfo{
 				Make:  "Nikon",
 				Model: "D850",
 			},
-			expected: fmt.Sprintf("Nikon D850 - %s", dateStr),
+			expected: fmt.Sprintf("Nikon D850 - %s", fallbackDateStr),
 		},
 		{
-			name: "Partial technical settings",
+			name: "Partial technical settings with photo date",
 			info: &CameraInfo{
 				Make:        "Fujifilm",
 				Model:       "X-T4",
 				FocalLength: "35mm",
 				FNumber:     "f/2.0",
+				DateTaken:   "10/03/2024",
 			},
-			expected: fmt.Sprintf("Fujifilm X-T4 - 35mm | f/2.0 - %s", dateStr),
+			expected: "Fujifilm X-T4 - 35mm | f/2.0 - 10/03/2024",
 		},
 	}
 

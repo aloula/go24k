@@ -23,6 +23,7 @@ type CameraInfo struct {
 	ISO          string // ISO speed (e.g., "400")
 	ExposureTime string // Shutter speed (e.g., "1/125s")
 	FNumber      string // Aperture (e.g., "f/2.8")
+	DateTaken    string // Date the photo was taken (DD/MM/YYYY)
 }
 
 // ConvertImages processes each .jpg file in the working directory, applies scaling,
@@ -210,6 +211,23 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 		}
 	}
 
+	// Extract date taken (DateTime or DateTimeOriginal)
+	if tag, err := x.Get(exif.DateTimeOriginal); err == nil {
+		dateStr := strings.TrimSpace(tag.String())
+		dateStr = strings.Trim(dateStr, `"`)
+		// Parse EXIF date format: "2006:01:02 15:04:05"
+		if t, err := time.Parse("2006:01:02 15:04:05", dateStr); err == nil {
+			info.DateTaken = t.Format("02/01/2006")
+		}
+	} else if tag, err := x.Get(exif.DateTime); err == nil {
+		// Fallback to DateTime if DateTimeOriginal is not available
+		dateStr := strings.TrimSpace(tag.String())
+		dateStr = strings.Trim(dateStr, `"`)
+		if t, err := time.Parse("2006:01:02 15:04:05", dateStr); err == nil {
+			info.DateTaken = t.Format("02/01/2006")
+		}
+	}
+
 	return info, nil
 }
 
@@ -246,9 +264,15 @@ func FormatCameraInfoOverlay(info *CameraInfo) string {
 		techSettings = append(techSettings, info.ISO)
 	}
 
-	// Get current date in DD/MM/YYYY format
-	currentTime := time.Now()
-	dateStr := currentTime.Format("02/01/2006")
+	// Use photo date if available, otherwise current date as fallback
+	var dateStr string
+	if info.DateTaken != "" {
+		dateStr = info.DateTaken
+	} else {
+		// Fallback to current date if no date found in EXIF
+		currentTime := time.Now()
+		dateStr = currentTime.Format("02/01/2006")
+	}
 
 	// Build final string: "Camera - TechSettings - Date"
 	var result string
