@@ -1,69 +1,128 @@
-# Exemplo de Saída - Detalhes do Vídeo
+# Exemplo de Saída - Detalhes do Vídeo 📊
 
-Exemplo da nova funcionalidade que mostra detalhes técnicos do vídeo gerado:
+Exemplos da funcionalidade que mostra **detalhes técnicos completos** do vídeo gerado.
 
-## Exemplo no Windows com Snapdragon X Plus
+> **NOVO**: Informações extraídas automaticamente via `ffprobe` para validação precisa da qualidade e configurações utilizadas.
+
+## 🚀 Exemplo no Windows com Snapdragon X Plus (OTIMIZADO)
 
 ```
-Hardware: Media Foundation detected - using Windows hardware acceleration
-Target bitrate: 20 Mbps | Max: 25 Mbps | Buffer: 50M | Mode: u_vbr
+Converting 5 images to 4K UHD...
+[1/5] | vacation_001.jpg...
+[2/5] | vacation_002.jpg...
+[3/5] | vacation_003.jpg...
+[4/5] | vacation_004.jpg...
+[5/5] | vacation_005.jpg...
 
-Generating video with audio...: ✓
+Hardware: Media Foundation detected - using Windows hardware acceleration  
+🎯 Generating video with audio... ✓
 
-=== Video generated successfully! ===
-File: video.mp4
-Resolution: 3840x2160 (4K UHD)
-Duration: 15 seconds (15.0s actual)
+📹 Video Details:
 File Size: 45.2 MB
-Video Bitrate: 22.3 Mbps
+Duration: 15.0 seconds
+Video Bitrate: 22.3 Mbps  ← OTIMIZADO! (antes <10 Mbps)
 Audio Bitrate: 192 kbps
-Framerate: 30 fps
-Images: 5
-Audio Source: background_music.mp3
+Framerate: 30 fps  
+Resolution: 4K UHD (3840x2160)
+Total time: 12.4 sec.
 ```
 
-## Exemplo no Linux com CPU
+**🎯 Melhoria**: Snapdragon X Plus agora atinge consistentemente **20+ Mbps** vs <10 Mbps anterior.
+
+## 💻 Exemplo no Linux com CPU (Software)
 
 ```
+Converting 4 images to 4K UHD...
+[1/4] | photo_001.jpg...
+[2/4] | photo_002.jpg...  
+[3/4] | photo_003.jpg...
+[4/4] | photo_004.jpg...
+
 CPU: Using libx264 software encoding
+🎯 Generating video (no audio)... ✓
 
-Generating video (no audio)...: ✓
-
-=== Video generated successfully! ===
-File: video.mp4
-Resolution: 3840x2160 (4K UHD)
-Duration: 12 seconds (12.0s actual)
+📹 Video Details:
 File Size: 38.7 MB
-Video Bitrate: 25.8 Mbps
+Duration: 12.0 seconds
+Video Bitrate: 14.2 Mbps  ← Alta qualidade CPU (CRF 21)
 Audio Bitrate: No audio
 Framerate: 30 fps
-Images: 4
-Audio Source: None (no MP3 file found)
+Resolution: 4K UHD (3840x2160)
+Total time: 68.3 sec.
 ```
 
-## Exemplo com NVIDIA NVENC
+**💡 Observação**: CPU ainda oferece excelente qualidade, apenas mais lento que hardware acceleration.
+
+## 🎮 Exemplo com NVIDIA NVENC (GPU)
 
 ```
+Converting 7 images to 4K UHD...
+[1/7] | summer_001.jpg...
+[2/7] | summer_002.jpg...
+[3/7] | summer_003.jpg...
+[4/7] | summer_004.jpg...
+[5/7] | summer_005.jpg...
+[6/7] | summer_006.jpg...
+[7/7] | summer_007.jpg...
+
 Hardware: NVIDIA NVENC detected - using GPU acceleration
+🎯 Generating video with audio... ✓
 
-Generating video with audio...: ✓
-
-=== Video generated successfully! ===
-File: video.mp4
-Resolution: 3840x2160 (4K UHD)
-Duration: 20 seconds (20.0s actual)
+📹 Video Details:
 File Size: 62.1 MB
-Video Bitrate: 24.7 Mbps
+Duration: 20.0 seconds  
+Video Bitrate: 18.4 Mbps  ← Excelente qualidade NVENC
 Audio Bitrate: 192 kbps
 Framerate: 30 fps
-Images: 7
-Audio Source: vacation_music.mp3
+Resolution: 4K UHD (3840x2160)
+Total time: 8.7 sec.
 ```
 
-## Informações Úteis
+**⚡ Performance**: NVENC oferece o melhor balance speed/quality para 4K.
 
-- **Video Bitrate**: Mostra o bitrate real alcançado, útil para verificar se as otimizações do Snapdragon X Plus estão funcionando (deve ser >15 Mbps)
-- **File Size**: Tamanho final do arquivo para planejamento de armazenamento
-- **Duration**: Duração exata vs esperada para validar processamento
-- **Audio Bitrate**: Confirma se o áudio foi processado corretamente
-- **Images**: Número de imagens processadas no vídeo
+## 🍎 Exemplo com Apple VideoToolbox (macOS)
+
+```
+Converting 6 images to 4K UHD...
+[1/6] | nature_001.jpg...
+[2/6] | nature_002.jpg...
+[3/6] | nature_003.jpg...
+[4/6] | nature_004.jpg...
+[5/6] | nature_005.jpg...
+[6/6] | nature_006.jpg...
+
+Hardware: Apple VideoToolbox detected - using macOS hardware acceleration
+🎯 Generating video with audio... ✓
+
+📹 Video Details:
+File Size: 51.3 MB
+Duration: 18.0 seconds
+Video Bitrate: 16.8 Mbps  ← Otimizado para Apple Silicon
+Audio Bitrate: 256 kbps
+Framerate: 30 fps
+Resolution: 4K UHD (3840x2160)
+Total time: 11.2 sec.
+```
+
+## 📊 Interpretação dos Dados
+
+### 🎯 **Video Bitrate** (Mais Importante)
+- **20+ Mbps**: Snapdragon X Plus otimizado ✅
+- **15-18 Mbps**: NVENC, VideoToolbox (qualidade excelente) ✅  
+- **12-15 Mbps**: CPU, QSV, AMF (boa qualidade) ✅
+- **<10 Mbps**: ⚠️ Possível problema (verificar `--debug`)
+
+### 📁 **File Size**
+- **~3-4 MB por segundo de vídeo** é normal para 4K
+- Arquivo maior = mais qualidade/detalhes
+- Ken Burns desabilitado (`-static`) = arquivo menor
+
+### ⏱️ **Total Time** (Performance)
+- **NVENC**: 8-15s para 5-7 imagens ⚡
+- **VideoToolbox**: 10-20s para 5-7 imagens 🚀
+- **Snapdragon**: 15-25s para 5-7 imagens ✨
+- **CPU**: 60-90s para 5-7 imagens 🐌
+
+### 🎵 **Audio Bitrate**
+- **128-320 kbps**: Áudio de boa qualidade
+- **"No audio"**: Nenhum MP3 encontrado no diretório
