@@ -667,8 +667,8 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) 
 				if err == nil && cameraInfo != nil {
 					overlayText := FormatCameraInfoOverlay(cameraInfo)
 					if overlayText != "" {
-						// Add drawtext filter to the final output
-						filterComplex += fmt.Sprintf("[xfout]drawtext=text='%s':fontsize=24:fontcolor=white:x=w-tw-20:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5[xfout_overlay]; ", overlayText)
+						// Add drawtext filter to the final output (centered, larger font)
+						filterComplex += fmt.Sprintf("[xfout]drawtext=text='%s':fontsize=36:fontcolor=white:x=(w-tw)/2:y=(h-th)/2:box=1:boxcolor=black@0.5:boxborderw=5[xfout_overlay]; ", overlayText)
 						// Update map args to use overlay output
 						if hasAudio {
 							mapArgs = []string{"-map", "[xfout_overlay]", "-map", "[musicout]", "-shortest", "video.mp4"}
