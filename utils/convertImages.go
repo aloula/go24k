@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/disintegration/imaging"
 	"github.com/rwcarlsen/goexif/exif"
@@ -204,45 +205,51 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 }
 
 // FormatCameraInfoOverlay formats camera information into a readable string for video overlay
+// Format: "Nikon Z6III - 50mm | f4 | ISO 500 - 30/10/2025"
 func FormatCameraInfoOverlay(info *CameraInfo) string {
 	if info == nil {
 		return ""
 	}
 
-	var parts []string
-
-	// Add camera info if available
+	// Start with camera make and model
+	var cameraName string
 	if info.Make != "" && info.Model != "" {
-		parts = append(parts, fmt.Sprintf("%s %s", info.Make, info.Model))
+		cameraName = fmt.Sprintf("%s %s", info.Make, info.Model)
 	} else if info.Model != "" {
-		parts = append(parts, info.Model)
+		cameraName = info.Model
 	}
 
-	// Add lens info if available
-	if info.LensModel != "" {
-		parts = append(parts, info.LensModel)
+	// If no camera info, return empty
+	if cameraName == "" {
+		return ""
 	}
 
-	// Create second line with technical settings
+	// Build technical settings with | separators
 	var techSettings []string
+
 	if info.FocalLength != "" {
 		techSettings = append(techSettings, info.FocalLength)
 	}
 	if info.FNumber != "" {
 		techSettings = append(techSettings, info.FNumber)
 	}
-	if info.ExposureTime != "" {
-		techSettings = append(techSettings, info.ExposureTime)
-	}
 	if info.ISO != "" {
 		techSettings = append(techSettings, info.ISO)
 	}
 
+	// Get current date in DD/MM/YYYY format
+	currentTime := time.Now()
+	dateStr := currentTime.Format("02/01/2006")
+
+	// Build final string: "Camera - TechSettings - Date"
+	var result string
 	if len(techSettings) > 0 {
-		parts = append(parts, strings.Join(techSettings, " • "))
+		result = fmt.Sprintf("%s - %s - %s", cameraName, strings.Join(techSettings, " | "), dateStr)
+	} else {
+		result = fmt.Sprintf("%s - %s", cameraName, dateStr)
 	}
 
-	return strings.Join(parts, "\\n")
+	return result
 }
 
 // GetOriginalFilename attempts to find the original image file corresponding to a converted file

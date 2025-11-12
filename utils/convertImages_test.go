@@ -588,6 +588,10 @@ func TestExtractCameraInfo(t *testing.T) {
 }
 
 func TestFormatCameraInfoOverlay(t *testing.T) {
+	// Get current date for test expectations
+	currentTime := time.Now()
+	dateStr := currentTime.Format("02/01/2006")
+
 	tests := []struct {
 		name     string
 		info     *CameraInfo
@@ -614,7 +618,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				ExposureTime: "1/125s",
 				FNumber:      "f/2.8",
 			},
-			expected: "Canon EOS R5\\nRF 24-70mm F2.8 L IS USM\\n50mm • f/2.8 • 1/125s • ISO 400",
+			expected: fmt.Sprintf("Canon EOS R5 - 50mm | f/2.8 | ISO 400 - %s", dateStr),
 		},
 		{
 			name: "Camera without lens info",
@@ -626,7 +630,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				ExposureTime: "1/250s",
 				FNumber:      "f/1.4",
 			},
-			expected: "Sony A7R IV\\n85mm • f/1.4 • 1/250s • ISO 800",
+			expected: fmt.Sprintf("Sony A7R IV - 85mm | f/1.4 | ISO 800 - %s", dateStr),
 		},
 		{
 			name: "Only camera make and model",
@@ -634,7 +638,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				Make:  "Nikon",
 				Model: "D850",
 			},
-			expected: "Nikon D850",
+			expected: fmt.Sprintf("Nikon D850 - %s", dateStr),
 		},
 		{
 			name: "Partial technical settings",
@@ -644,7 +648,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				FocalLength: "35mm",
 				FNumber:     "f/2.0",
 			},
-			expected: "Fujifilm X-T4\\n35mm • f/2.0",
+			expected: fmt.Sprintf("Fujifilm X-T4 - 35mm | f/2.0 - %s", dateStr),
 		},
 	}
 
