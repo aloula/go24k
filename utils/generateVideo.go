@@ -557,7 +557,7 @@ func ShowEnvironmentInfo() {
 }
 
 // processImageFilter creates the video filter for a single image
-func processImageFilter(file string, index, duration, fadeDuration int, applyKenBurns, exifOverlay bool) string {
+func processImageFilter(file string, index, duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int) string {
 	var videoFilter string
 
 	if applyKenBurns {
@@ -583,16 +583,8 @@ func processImageFilter(file string, index, duration, fadeDuration int, applyKen
 		originalFile := GetOriginalFilename(file)
 		if originalFile != "" {
 			if cameraInfo, err := ExtractCameraInfo(originalFile); err == nil && cameraInfo != nil {
-				overlayText := FormatCameraInfoOverlay(cameraInfo)
-				if overlayText != "" {
-					// For Windows: remove/replace problematic characters and escape spaces
-					overlayText = strings.ReplaceAll(overlayText, "|", "-")   // Replace pipes with dashes
-					overlayText = strings.ReplaceAll(overlayText, "/", ".")   // Replace slashes with dots
-					overlayText = strings.ReplaceAll(overlayText, ":", " ")   // Replace colons with spaces
-					overlayText = strings.ReplaceAll(overlayText, " ", "\\ ") // Escape spaces for FFmpeg
-
-					// Use text without quotes, with escaped spaces
-					drawtextFilter := fmt.Sprintf(",drawtext=text=%s:fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5", overlayText)
+				drawtextFilter := FormatCameraInfoOverlay(cameraInfo, fontSize)
+				if drawtextFilter != "" {
 					videoFilter += drawtextFilter
 				}
 			}
@@ -746,8 +738,8 @@ func displayVideoInfo(finalLength int) {
 // GenerateVideo creates a video from already 4K images with crossfade transitions,
 // audio fades, and optionally a Ken Burns effect applied to each image.
 // If applyKenBurns is false, the images remain static.
-// If exifOverlay is true, camera info will be displayed in the bottom right corner.
-func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) {
+// If exifOverlay is true, camera info will be displayed in the footer with specified fontSize.
+func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int) {
 	// Find all converted .jpg files (4K resolution).
 	files, err := filepath.Glob("converted/*.jpg")
 	if err != nil {
@@ -771,11 +763,9 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) 
 
 	for index, file := range files {
 		inputs = append(inputs, "-loop", "1", "-t", fmt.Sprintf("%d", duration), "-i", file)
-		videoFilter := processImageFilter(file, index, duration, fadeDuration, applyKenBurns, exifOverlay)
+		videoFilter := processImageFilter(file, index, duration, fadeDuration, applyKenBurns, exifOverlay, fontSize)
 		filterComplex += fmt.Sprintf("%s[v%d]; ", videoFilter, index)
-	}
-
-	// Add crossfade transitions
+	} // Add crossfade transitions
 	filterComplex += buildCrossfadeFilters(len(files), duration, fadeDuration)
 
 	// Add final filters and get duration

@@ -258,9 +258,9 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 	return info, nil
 }
 
-// FormatCameraInfoOverlay formats camera information into a readable string for video overlay
-// Format: "Nikon - Z6III - 50mm - f/4 - ISO 500 - 15.08.2024"
-func FormatCameraInfoOverlay(info *CameraInfo) string {
+// FormatCameraInfoOverlay formats camera information and creates FFmpeg drawtext filter
+// with specified fontSize, positioned in the footer (bottom center)
+func FormatCameraInfoOverlay(info *CameraInfo, fontSize int) string {
 	if info == nil {
 		return ""
 	}
@@ -302,14 +302,28 @@ func FormatCameraInfoOverlay(info *CameraInfo) string {
 	}
 
 	// Build final string: "Camera - TechSettings - Date"
-	var result string
+	var overlayText string
 	if len(techSettings) > 0 {
-		result = fmt.Sprintf("%s - %s - %s", cameraName, strings.Join(techSettings, " - "), dateStr)
+		overlayText = fmt.Sprintf("%s - %s - %s", cameraName, strings.Join(techSettings, " - "), dateStr)
 	} else {
-		result = fmt.Sprintf("%s - %s", cameraName, dateStr)
+		overlayText = fmt.Sprintf("%s - %s", cameraName, dateStr)
 	}
 
-	return result
+	// For Windows: remove/replace problematic characters and escape spaces
+	overlayText = strings.ReplaceAll(overlayText, "|", "-")   // Replace pipes with dashes
+	overlayText = strings.ReplaceAll(overlayText, "/", ".")   // Replace slashes with dots
+	overlayText = strings.ReplaceAll(overlayText, ":", " ")   // Replace colons with spaces
+	overlayText = strings.ReplaceAll(overlayText, " ", "\\ ") // Escape spaces for FFmpeg
+
+	// Position fixed at footer (bottom center)
+	xPosition := "(w-tw)/2" // Horizontal center
+	yPosition := "h-th-20"  // Bottom with 20px margin
+
+	// Build the complete FFmpeg drawtext filter
+	drawtextFilter := fmt.Sprintf(",drawtext=text=%s:fontsize=%d:fontcolor=white:x=%s:y=%s:box=1:boxcolor=black@0.5:boxborderw=5",
+		overlayText, fontSize, xPosition, yPosition)
+
+	return drawtextFilter
 }
 
 // GetOriginalFilename attempts to find the original image file corresponding to a converted file

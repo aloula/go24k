@@ -589,27 +589,26 @@ func TestExtractCameraInfo(t *testing.T) {
 }
 
 func TestFormatCameraInfoOverlay(t *testing.T) {
-	// Get current date for fallback test expectations
-	currentTime := time.Now()
-	fallbackDateStr := currentTime.Format("02.01.2006")
-
 	tests := []struct {
 		name     string
 		info     *CameraInfo
+		fontSize int
 		expected string
 	}{
 		{
 			name:     "Nil info",
 			info:     nil,
+			fontSize: 36,
 			expected: "",
 		},
 		{
 			name:     "Empty info",
 			info:     &CameraInfo{},
+			fontSize: 36,
 			expected: "",
 		},
 		{
-			name: "Full camera info with photo date",
+			name: "Full camera info",
 			info: &CameraInfo{
 				Make:         "Canon",
 				Model:        "EOS R5",
@@ -620,31 +619,34 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				FNumber:      "f/2.8",
 				DateTaken:    "15.08.2024",
 			},
-			expected: "Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024",
+			fontSize: 36,
+			expected: ",drawtext=text=Canon\\ -\\ EOS\\ R5\\ -\\ 50mm\\ -\\ f.2.8\\ -\\ ISO\\ 400\\ -\\ 15.08.2024:fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
-			name: "Camera without lens info with photo date",
+			name: "Camera with large font",
 			info: &CameraInfo{
-				Make:         "Sony",
-				Model:        "A7R IV",
-				FocalLength:  "85mm",
-				ISO:          "ISO 800",
-				ExposureTime: "1/250s",
-				FNumber:      "f/1.4",
-				DateTaken:    "22.06.2024",
+				Make:        "Sony",
+				Model:       "A7R IV",
+				FocalLength: "85mm",
+				ISO:         "ISO 800",
+				FNumber:     "f/1.4",
+				DateTaken:   "22.06.2024",
 			},
-			expected: "Sony - A7R IV - 85mm - f/1.4 - ISO 800 - 22.06.2024",
+			fontSize: 48,
+			expected: ",drawtext=text=Sony\\ -\\ A7R\\ IV\\ -\\ 85mm\\ -\\ f.1.4\\ -\\ ISO\\ 800\\ -\\ 22.06.2024:fontsize=48:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
-			name: "Only camera make and model with fallback date",
+			name: "Basic camera info",
 			info: &CameraInfo{
-				Make:  "Nikon",
-				Model: "D850",
+				Make:      "Nikon",
+				Model:     "D850",
+				DateTaken: "10.03.2024",
 			},
-			expected: fmt.Sprintf("Nikon - D850 - %s", fallbackDateStr),
+			fontSize: 24,
+			expected: ",drawtext=text=Nikon\\ -\\ D850\\ -\\ 10.03.2024:fontsize=24:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
-			name: "Partial technical settings with photo date",
+			name: "Camera with partial info",
 			info: &CameraInfo{
 				Make:        "Fujifilm",
 				Model:       "X-T4",
@@ -652,13 +654,14 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				FNumber:     "f/2.0",
 				DateTaken:   "10.03.2024",
 			},
-			expected: "Fujifilm - X-T4 - 35mm - f/2.0 - 10.03.2024",
+			fontSize: 32,
+			expected: ",drawtext=text=Fujifilm\\ -\\ X-T4\\ -\\ 35mm\\ -\\ f.2.0\\ -\\ 10.03.2024:fontsize=32:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FormatCameraInfoOverlay(tt.info)
+			result := FormatCameraInfoOverlay(tt.info, tt.fontSize)
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}

@@ -39,7 +39,7 @@ Detecta automaticamente e usa a melhor opção disponível com **detecção real
 
 ### 🆕 **Nova Funcionalidade: Overlay de Informações da Câmera**
 
-O Go24K agora pode extrair automaticamente informações técnicas das fotos e exibi-las como legenda no rodapé direito do vídeo.
+O Go24K agora pode extrair automaticamente informações técnicas das fotos e exibi-las como legenda centralizada no rodapé do vídeo.
 
 #### **Informações Exibidas:**
 - **Câmera**: Fabricante e modelo (ex: "Canon EOS R5")
@@ -67,12 +67,24 @@ Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
 #### **Formato de Overlay:**
 - **Separadores**: Dashes (-) para compatibilidade com Windows/FFmpeg
 - **Data da foto**: Formato DD.MM.YYYY extraído dos dados EXIF
-- **Layout compacto**: Informações em linha única no rodapé centralizado
+- **Layout compacto**: Informações em linha única com posicionamento configurável
+
+#### **Personalização:**
+```bash
+# Configurar tamanho da fonte (padrão: 36px)
+./go24k -exif-overlay -overlay-font-size 48
+
+# Fonte menor para imagens com muito texto
+./go24k -exif-overlay -overlay-font-size 24
+
+# Fonte grande para visualização em TV
+./go24k -exif-overlay -overlay-font-size 60
+```
 
 #### **Notas Técnicas:**
 - ✅ **Dados extraídos dos arquivos originais**: As informações vêm dos arquivos JPEG originais antes da conversão
 - ✅ **Fallback inteligente**: Se alguns dados EXIF não estiverem disponíveis, exibe apenas os disponíveis
-- ✅ **Posicionamento otimizado**: Rodapé direito com fundo semi-transparente para legibilidade
+- ✅ **Posicionamento fixo no rodapé**: Centralizado com margem automática para máxima legibilidade
 - ✅ **Sem impacto na performance**: Extração rápida durante o processamento
 
 ## Requisitos
@@ -115,7 +127,8 @@ Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
 
 #### Utilitários
 - `--debug` - **NOVO**: Mostra detecção completa de hardware e configurações FFmpeg
-- `--exif-overlay` - **NOVO**: Adiciona legenda com informações da câmera no rodapé direito
+- `--exif-overlay` - **NOVO**: Adiciona legenda com informações da câmera (rodapé centralizado)
+- `--overlay-font-size <pixels>` - **NOVO**: Tamanho da fonte do overlay (padrão: 36)
 - `--help` - Exibe ajuda com todas as opções
 
 **Exemplos:**
@@ -132,8 +145,17 @@ Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
 # Apenas converter imagens para 4K
 ./go24k -convert-only
 
-# Com legenda de informações da câmera
+# Com legenda de informações da câmera (rodapé centralizado, fonte 36px)
 ./go24k -exif-overlay
+
+# Overlay com fonte grande para TVs
+./go24k -exif-overlay -overlay-font-size 48
+
+# Overlay com fonte pequena para telas menores
+./go24k -exif-overlay -overlay-font-size 24
+
+# Configuração personalizada com duração longa
+./go24k -exif-overlay -overlay-font-size 32 -d 6
 
 # Verificar hardware disponível  
 ./go24k --debug
