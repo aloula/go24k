@@ -672,7 +672,7 @@ func setupAudioProcessing(inputs []string, index, startFadeOut int) AudioConfig 
 }
 
 // runFFmpegCommand executes the ffmpeg command with progress indication
-func runFFmpegCommand(args []string, hasAudio bool, finalLength int) error {
+func runFFmpegCommand(args []string, hasAudio bool) error {
 	cmd := exec.Command("ffmpeg", args...)
 
 	// Redirect FFmpeg logs to /dev/null.
@@ -807,7 +807,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) 
 	args = append(args, "-t", fmt.Sprintf("%d", finalLength))
 
 	// Execute FFmpeg command
-	if err := runFFmpegCommand(args, audioConfig.HasAudio, finalLength); err != nil {
+	if err := runFFmpegCommand(args, audioConfig.HasAudio); err != nil {
 		log.Fatalf("Video generation failed: %v", err)
 	} // Display final information
 	displayVideoInfo(finalLength)
