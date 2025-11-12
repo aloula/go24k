@@ -9,7 +9,7 @@
 
 # Diretórios gerados
 /converted/
-/builds/
+#/builds/
 
 # Binários
 go24k
