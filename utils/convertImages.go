@@ -150,17 +150,26 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 
 	// Extract camera make
 	if tag, err := x.Get(exif.Make); err == nil {
-		info.Make = strings.TrimSpace(tag.String())
+		makeStr := strings.TrimSpace(tag.String())
+		// Remove surrounding quotes if present
+		makeStr = strings.Trim(makeStr, `"`)
+		info.Make = makeStr
 	}
 
 	// Extract camera model
 	if tag, err := x.Get(exif.Model); err == nil {
-		info.Model = strings.TrimSpace(tag.String())
+		modelStr := strings.TrimSpace(tag.String())
+		// Remove surrounding quotes if present
+		modelStr = strings.Trim(modelStr, `"`)
+		info.Model = modelStr
 	}
 
 	// Extract lens model
 	if tag, err := x.Get(exif.LensModel); err == nil {
-		info.LensModel = strings.TrimSpace(tag.String())
+		lensStr := strings.TrimSpace(tag.String())
+		// Remove surrounding quotes if present
+		lensStr = strings.Trim(lensStr, `"`)
+		info.LensModel = lensStr
 	}
 
 	// Extract focal length

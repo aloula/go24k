@@ -585,23 +585,42 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) 
 	// Process each image file.
 	for _, file := range files {
 		inputs = append(inputs, "-loop", "1", "-t", fmt.Sprintf("%d", duration), "-i", file)
+
+		var videoFilter string
+
 		if applyKenBurns {
 			// Apply Ken Burns effect.
 			effect := getKenBurnsEffect(duration)
 			if index == 0 {
 				// For the first image, apply the effect followed by a fade-in.
-				filterComplex += fmt.Sprintf("[0:v]%s,fade=t=in:st=0:d=%d[v%d]; ", effect, fadeDuration, index)
+				videoFilter = fmt.Sprintf("[0:v]%s,fade=t=in:st=0:d=%d", effect, fadeDuration)
 			} else {
-				filterComplex += fmt.Sprintf("[%d:v]%s[v%d]; ", index, effect, index)
+				videoFilter = fmt.Sprintf("[%d:v]%s", index, effect)
 			}
 		} else {
 			// Static: no zoom/pan effect.
 			if index == 0 {
-				filterComplex += fmt.Sprintf("[0:v]fade=t=in:st=0:d=%d[v%d]; ", fadeDuration, index)
+				videoFilter = fmt.Sprintf("[0:v]fade=t=in:st=0:d=%d", fadeDuration)
 			} else {
-				filterComplex += fmt.Sprintf("[%d:v]copy[v%d]; ", index, index)
+				videoFilter = fmt.Sprintf("[%d:v]copy", index)
 			}
 		}
+
+		// Add EXIF overlay if requested
+		if exifOverlay {
+			originalFile := GetOriginalFilename(file)
+			if originalFile != "" {
+				if cameraInfo, err := ExtractCameraInfo(originalFile); err == nil && cameraInfo != nil {
+					overlayText := FormatCameraInfoOverlay(cameraInfo)
+					if overlayText != "" {
+						// Add drawtext filter to this image
+						videoFilter += fmt.Sprintf(",drawtext=text='%s':fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5", overlayText)
+					}
+				}
+			}
+		}
+
+		filterComplex += fmt.Sprintf("%s[v%d]; ", videoFilter, index)
 		index++
 	}
 
@@ -655,31 +674,6 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) 
 	// Build the complete ffmpeg command.
 	args := []string{"-y"}
 	args = append(args, inputs...)
-
-	// Add EXIF overlay if requested
-	if exifOverlay {
-		// Extract camera info from the first image
-		if len(files) > 0 {
-			// Get the original filename to extract EXIF data
-			originalFile := GetOriginalFilename(files[0])
-			if originalFile != "" {
-				cameraInfo, err := ExtractCameraInfo(originalFile)
-				if err == nil && cameraInfo != nil {
-					overlayText := FormatCameraInfoOverlay(cameraInfo)
-					if overlayText != "" {
-						// Add drawtext filter to the final output (footer centered, larger font)
-						filterComplex += fmt.Sprintf("[xfout]drawtext=text='%s':fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5[xfout_overlay]; ", overlayText)
-						// Update map args to use overlay output
-						if hasAudio {
-							mapArgs = []string{"-map", "[xfout_overlay]", "-map", "[musicout]", "-shortest", "video.mp4"}
-						} else {
-							mapArgs = []string{"-map", "[xfout_overlay]", "video.mp4"}
-						}
-					}
-				}
-			}
-		}
-	}
 
 	args = append(args, "-filter_complex", filterComplex)
 	args = append(args, mapArgs...)
