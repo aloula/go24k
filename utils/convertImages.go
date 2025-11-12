@@ -132,6 +132,31 @@ func FetchImageTimestamp(filename string) (string, error) {
 	return tm.Format("20060102_150405"), nil
 }
 
+// simplifyBrandName removes common suffixes from camera brand names
+func simplifyBrandName(brand string) string {
+	// List of suffixes to remove
+	suffixes := []string{
+		" Corporation",
+		" CORPORATION",
+		" Corp.",
+		" Corp",
+		" Co., Ltd.",
+		" Co., Ltd",
+		" Ltd.",
+		" Ltd",
+		" Inc.",
+		" Inc",
+	}
+
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(brand, suffix) {
+			return strings.TrimSpace(strings.TrimSuffix(brand, suffix))
+		}
+	}
+
+	return brand
+}
+
 // ExtractCameraInfo extracts camera and lens information from EXIF data
 func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 	file, err := os.Open(filename)
@@ -154,6 +179,8 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 		makeStr := strings.TrimSpace(tag.String())
 		// Remove surrounding quotes if present
 		makeStr = strings.Trim(makeStr, `"`)
+		// Simplify brand name (remove Corporation, etc.)
+		makeStr = simplifyBrandName(makeStr)
 		info.Make = makeStr
 	}
 
@@ -241,7 +268,7 @@ func FormatCameraInfoOverlay(info *CameraInfo) string {
 	// Start with camera make and model
 	var cameraName string
 	if info.Make != "" && info.Model != "" {
-		cameraName = fmt.Sprintf("%s %s", info.Make, info.Model)
+		cameraName = fmt.Sprintf("%s - %s", info.Make, info.Model)
 	} else if info.Model != "" {
 		cameraName = info.Model
 	}

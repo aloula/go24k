@@ -53,12 +53,12 @@ coverage:
 # Análise estática
 lint:
 	@echo "🔍 Executando golangci-lint..."
-	golangci-lint run --timeout 2m
+	~/go/bin/golangci-lint run --timeout 2m
 
-# Análise com golangci-lint moderno (revive + stylecheck)
+# Análise com golangci-lint moderno (modo verboso)
 lint-modern:
 	@echo "🔍 Executando golangci-lint moderno..."
-	golangci-lint run --timeout 2m
+	~/go/bin/golangci-lint run --timeout 2m --verbose
 	@echo "✅ Análise moderna concluída"
 
 # Instalar dependências de desenvolvimento

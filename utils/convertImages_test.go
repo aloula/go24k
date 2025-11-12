@@ -620,7 +620,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				FNumber:      "f/2.8",
 				DateTaken:    "15/08/2024",
 			},
-			expected: "Canon EOS R5 - 50mm | f/2.8 | ISO 400 - 15/08/2024",
+			expected: "Canon - EOS R5 - 50mm | f/2.8 | ISO 400 - 15/08/2024",
 		},
 		{
 			name: "Camera without lens info with photo date",
@@ -633,7 +633,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				FNumber:      "f/1.4",
 				DateTaken:    "22/06/2024",
 			},
-			expected: "Sony A7R IV - 85mm | f/1.4 | ISO 800 - 22/06/2024",
+			expected: "Sony - A7R IV - 85mm | f/1.4 | ISO 800 - 22/06/2024",
 		},
 		{
 			name: "Only camera make and model with fallback date",
@@ -641,7 +641,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				Make:  "Nikon",
 				Model: "D850",
 			},
-			expected: fmt.Sprintf("Nikon D850 - %s", fallbackDateStr),
+			expected: fmt.Sprintf("Nikon - D850 - %s", fallbackDateStr),
 		},
 		{
 			name: "Partial technical settings with photo date",
@@ -652,7 +652,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				FNumber:     "f/2.0",
 				DateTaken:   "10/03/2024",
 			},
-			expected: "Fujifilm X-T4 - 35mm | f/2.0 - 10/03/2024",
+			expected: "Fujifilm - X-T4 - 35mm | f/2.0 - 10/03/2024",
 		},
 	}
 

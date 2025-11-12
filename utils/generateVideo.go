@@ -585,8 +585,15 @@ func processImageFilter(file string, index, duration, fadeDuration int, applyKen
 			if cameraInfo, err := ExtractCameraInfo(originalFile); err == nil && cameraInfo != nil {
 				overlayText := FormatCameraInfoOverlay(cameraInfo)
 				if overlayText != "" {
-					// Add drawtext filter to this image
-					videoFilter += fmt.Sprintf(",drawtext=text='%s':fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5", overlayText)
+					// For Windows: remove/replace problematic characters and escape spaces
+					overlayText = strings.ReplaceAll(overlayText, "|", "-")   // Replace pipes with dashes
+					overlayText = strings.ReplaceAll(overlayText, "/", ".")   // Replace slashes with dots
+					overlayText = strings.ReplaceAll(overlayText, ":", " ")   // Replace colons with spaces
+					overlayText = strings.ReplaceAll(overlayText, " ", "\\ ") // Escape spaces for FFmpeg
+
+					// Use text without quotes, with escaped spaces
+					drawtextFilter := fmt.Sprintf(",drawtext=text=%s:fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5", overlayText)
+					videoFilter += drawtextFilter
 				}
 			}
 		}
