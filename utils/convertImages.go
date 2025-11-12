@@ -50,7 +50,7 @@ func ConvertImages() error {
 
 	for i, file := range files {
 		// Simple progress indicator
-		fmt.Printf("[%d/%d] | %s...\n", i+1, fileCount, filepath.Base(file))
+		fmt.Printf("[%d/%d] %s...\n", i+1, fileCount, filepath.Base(file))
 
 		// Get original file size
 		if info, err := os.Stat(file); err == nil {
