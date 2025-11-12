@@ -151,37 +151,35 @@ Total time: 9.1 sec.
 
 ### **🎬 Legenda Exibida no Vídeo:**
 
-Rodapé direito com fundo semi-transparente:
+Rodapé centralizado com fundo semi-transparente:
 ```
-Canon EOS R5
-RF 24-70mm F2.8 L IS USM
-85mm • f/1.8 • 1/200s • ISO 800
+Canon - EOS R5 - 85mm - f/1.8 - ISO 800 - 15.08.2024
 ```
+
+**Formato atualizado:**
+- Separadores com dashes (-) para compatibilidade Windows
+- Data da foto extraída dos dados EXIF (DD.MM.YYYY)
+- Layout compacto em linha única
+- Posicionamento centralizado no rodapé
 
 #### **Exemplos de Diferentes Câmeras:**
 
 **📱 Smartphone:**
 ```
-Apple iPhone 15 Pro
-28mm • f/1.8 • 1/60s • ISO 125
+Apple - iPhone 15 Pro - 28mm - f/1.8 - ISO 125 - 12.08.2024
 ```
 
 **🎥 Mirrorless:**
 ```
-Sony A7R V
-FE 24-70mm F2.8 GM II
-50mm • f/2.8 • 1/125s • ISO 400
+Sony - A7R V - 50mm - f/2.8 - ISO 400 - 15.07.2024
 ```
 
 **📸 DSLR:**
 ```
-Nikon D850
-NIKKOR 85mm f/1.4G
-85mm • f/2.0 • 1/250s • ISO 200
+Nikon - D850 - 85mm - f/2.0 - ISO 200 - 20.06.2024
 ```
 
 **📷 Compacta:**
 ```
-Fujifilm X100VI
-23mm • f/2.0 • 1/500s • ISO 160
+Fujifilm - X100VI - 23mm - f/2.0 - ISO 160 - 10.09.2024
 ```

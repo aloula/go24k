@@ -61,10 +61,13 @@ O Go24K agora pode extrair automaticamente informações técnicas das fotos e e
 
 #### **Exemplo de Legenda:**
 ```
-Canon EOS R5
-RF 24-70mm F2.8 L IS USM
-50mm • f/2.8 • 1/125s • ISO 400
+Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
 ```
+
+#### **Formato de Overlay:**
+- **Separadores**: Dashes (-) para compatibilidade com Windows/FFmpeg
+- **Data da foto**: Formato DD.MM.YYYY extraído dos dados EXIF
+- **Layout compacto**: Informações em linha única no rodapé centralizado
 
 #### **Notas Técnicas:**
 - ✅ **Dados extraídos dos arquivos originais**: As informações vêm dos arquivos JPEG originais antes da conversão

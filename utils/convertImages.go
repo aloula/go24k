@@ -244,14 +244,14 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 		dateStr = strings.Trim(dateStr, `"`)
 		// Parse EXIF date format: "2006:01:02 15:04:05"
 		if t, err := time.Parse("2006:01:02 15:04:05", dateStr); err == nil {
-			info.DateTaken = t.Format("02/01/2006")
+			info.DateTaken = t.Format("02.01.2006")
 		}
 	} else if tag, err := x.Get(exif.DateTime); err == nil {
 		// Fallback to DateTime if DateTimeOriginal is not available
 		dateStr := strings.TrimSpace(tag.String())
 		dateStr = strings.Trim(dateStr, `"`)
 		if t, err := time.Parse("2006:01:02 15:04:05", dateStr); err == nil {
-			info.DateTaken = t.Format("02/01/2006")
+			info.DateTaken = t.Format("02.01.2006")
 		}
 	}
 
@@ -259,7 +259,7 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 }
 
 // FormatCameraInfoOverlay formats camera information into a readable string for video overlay
-// Format: "Nikon Z6III - 50mm | f4 | ISO 500 - 30/10/2025"
+// Format: "Nikon - Z6III - 50mm - f/4 - ISO 500 - 15.08.2024"
 func FormatCameraInfoOverlay(info *CameraInfo) string {
 	if info == nil {
 		return ""
@@ -278,7 +278,7 @@ func FormatCameraInfoOverlay(info *CameraInfo) string {
 		return ""
 	}
 
-	// Build technical settings with | separators
+	// Build technical settings with dash separators
 	var techSettings []string
 
 	if info.FocalLength != "" {
@@ -298,13 +298,13 @@ func FormatCameraInfoOverlay(info *CameraInfo) string {
 	} else {
 		// Fallback to current date if no date found in EXIF
 		currentTime := time.Now()
-		dateStr = currentTime.Format("02/01/2006")
+		dateStr = currentTime.Format("02.01.2006")
 	}
 
 	// Build final string: "Camera - TechSettings - Date"
 	var result string
 	if len(techSettings) > 0 {
-		result = fmt.Sprintf("%s - %s - %s", cameraName, strings.Join(techSettings, " | "), dateStr)
+		result = fmt.Sprintf("%s - %s - %s", cameraName, strings.Join(techSettings, " - "), dateStr)
 	} else {
 		result = fmt.Sprintf("%s - %s", cameraName, dateStr)
 	}
