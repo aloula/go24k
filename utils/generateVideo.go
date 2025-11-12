@@ -556,78 +556,51 @@ func ShowEnvironmentInfo() {
 	fmt.Printf("  • Hardware encoders use equivalent quality settings\n")
 }
 
-// GenerateVideo creates a video from already 4K images with crossfade transitions,
-// audio fades, and optionally a Ken Burns effect applied to each image.
-// If applyKenBurns is false, the images remain static.
-// If exifOverlay is true, camera info will be displayed in the bottom right corner.
-func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) {
-	// Find all converted .jpg files (4K resolution).
-	files, err := filepath.Glob("converted/*.jpg")
-	if err != nil {
-		log.Fatalf("Failed to list converted .jpg files: %v", err)
-	}
+// processImageFilter creates the video filter for a single image
+func processImageFilter(file string, index, duration, fadeDuration int, applyKenBurns, exifOverlay bool) string {
+	var videoFilter string
 
-	// Check if we have enough images to create a video
-	if len(files) == 0 {
-		log.Fatalf("No converted images found in 'converted/' directory.\nPlease convert your images first using the image conversion feature.")
-	}
-
-	if len(files) < 2 {
-		log.Fatalf("Not enough images found. Need at least 2 images to create a video with transitions.\nFound: %d image(s) in 'converted/' directory.", len(files))
-	}
-
-	fmt.Printf("Generating video from %d images...\n", len(files))
-
-	index := 0
-	inputs := []string{}
-	filterComplex := ""
-
-	// Process each image file.
-	for _, file := range files {
-		inputs = append(inputs, "-loop", "1", "-t", fmt.Sprintf("%d", duration), "-i", file)
-
-		var videoFilter string
-
-		if applyKenBurns {
-			// Apply Ken Burns effect.
-			effect := getKenBurnsEffect(duration)
-			if index == 0 {
-				// For the first image, apply the effect followed by a fade-in.
-				videoFilter = fmt.Sprintf("[0:v]%s,fade=t=in:st=0:d=%d", effect, fadeDuration)
-			} else {
-				videoFilter = fmt.Sprintf("[%d:v]%s", index, effect)
-			}
+	if applyKenBurns {
+		// Apply Ken Burns effect.
+		effect := getKenBurnsEffect(duration)
+		if index == 0 {
+			// For the first image, apply the effect followed by a fade-in.
+			videoFilter = fmt.Sprintf("[0:v]%s,fade=t=in:st=0:d=%d", effect, fadeDuration)
 		} else {
-			// Static: no zoom/pan effect.
-			if index == 0 {
-				videoFilter = fmt.Sprintf("[0:v]fade=t=in:st=0:d=%d", fadeDuration)
-			} else {
-				videoFilter = fmt.Sprintf("[%d:v]copy", index)
-			}
+			videoFilter = fmt.Sprintf("[%d:v]%s", index, effect)
 		}
+	} else {
+		// Static: no zoom/pan effect.
+		if index == 0 {
+			videoFilter = fmt.Sprintf("[0:v]fade=t=in:st=0:d=%d", fadeDuration)
+		} else {
+			videoFilter = fmt.Sprintf("[%d:v]copy", index)
+		}
+	}
 
-		// Add EXIF overlay if requested
-		if exifOverlay {
-			originalFile := GetOriginalFilename(file)
-			if originalFile != "" {
-				if cameraInfo, err := ExtractCameraInfo(originalFile); err == nil && cameraInfo != nil {
-					overlayText := FormatCameraInfoOverlay(cameraInfo)
-					if overlayText != "" {
-						// Add drawtext filter to this image
-						videoFilter += fmt.Sprintf(",drawtext=text='%s':fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5", overlayText)
-					}
+	// Add EXIF overlay if requested
+	if exifOverlay {
+		originalFile := GetOriginalFilename(file)
+		if originalFile != "" {
+			if cameraInfo, err := ExtractCameraInfo(originalFile); err == nil && cameraInfo != nil {
+				overlayText := FormatCameraInfoOverlay(cameraInfo)
+				if overlayText != "" {
+					// Add drawtext filter to this image
+					videoFilter += fmt.Sprintf(",drawtext=text='%s':fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5", overlayText)
 				}
 			}
 		}
-
-		filterComplex += fmt.Sprintf("%s[v%d]; ", videoFilter, index)
-		index++
 	}
 
-	totalFiles := len(files)
+	return videoFilter
+}
+
+// buildCrossfadeFilters creates the crossfade transition filters
+func buildCrossfadeFilters(numImages, duration, fadeDuration int) string {
+	var filterComplex string
 
 	// Generate crossfade transitions.
-	for i := 0; i < index-1; i++ {
+	for i := 0; i < numImages-1; i++ {
 		next := i + 1
 		offset := (i + 1) * (duration - fadeDuration)
 		if i == 0 {
@@ -637,74 +610,74 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) 
 		}
 	}
 
-	// Apply fade-out to the final image.
-	totalDuration := index*duration - (index-1)*fadeDuration
-	startFadeOut := totalDuration - fadeDuration
-	filterComplex += fmt.Sprintf("[x%d]fade=t=out:st=%d:d=%d[xf]; ", index-1, startFadeOut, fadeDuration)
+	return filterComplex
+}
 
-	// Force the final video to exactly be ND seconds.
-	finalLength := (totalFiles * duration) - ((totalFiles - 1) * fadeDuration)
+// buildFinalFilters creates the fade-out and trim filters
+func buildFinalFilters(numImages, duration, fadeDuration int) (string, int) {
+	totalDuration := numImages*duration - (numImages-1)*fadeDuration
+	startFadeOut := totalDuration - fadeDuration
+	finalLength := (numImages * duration) - ((numImages - 1) * fadeDuration)
+
+	var filterComplex string
+	filterComplex += fmt.Sprintf("[x%d]fade=t=out:st=%d:d=%d[xf]; ", numImages-1, startFadeOut, fadeDuration)
 	filterComplex += fmt.Sprintf("[xf]trim=duration=%d,setpts=PTS-STARTPTS[xfout]; ", finalLength)
 
-	// Check for music input.
+	return filterComplex, finalLength
+}
+
+// AudioConfig contains audio processing configuration
+type AudioConfig struct {
+	Inputs      []string
+	MapArgs     []string
+	AudioFilter string
+	HasAudio    bool
+}
+
+// setupAudioProcessing handles audio input and processing
+func setupAudioProcessing(inputs []string, index, startFadeOut int) AudioConfig {
 	musicFiles, err := filepath.Glob("*.mp3")
 	if err != nil {
 		log.Fatalf("Failed to list mp3 files: %v", err)
 	}
 
-	var mapArgs []string
-	hasAudio := len(musicFiles) > 0
+	config := AudioConfig{
+		Inputs:   inputs,
+		HasAudio: len(musicFiles) > 0,
+	}
 
-	if hasAudio {
+	if config.HasAudio {
 		fmt.Printf("Audio file found: %s\n", musicFiles[0])
-		inputs = append(inputs, "-i", musicFiles[0])
+		config.Inputs = append(config.Inputs, "-i", musicFiles[0])
 
 		// Apply audio fades.
-		filterComplex += fmt.Sprintf("[%d:a]afade=t=in:st=0:d=2,afade=t=out:st=%d:d=4[musicout]; ", index, startFadeOut-4)
+		config.AudioFilter = fmt.Sprintf("[%d:a]afade=t=in:st=0:d=2,afade=t=out:st=%d:d=4[musicout]; ", index, startFadeOut-4)
 
 		// Map video and audio
-		mapArgs = []string{"-map", "[xfout]", "-map", "[musicout]", "-shortest", "video.mp4"}
+		config.MapArgs = []string{"-map", "[xfout]", "-map", "[musicout]", "-shortest", "video.mp4"}
 	} else {
 		fmt.Printf("No MP3 file found - generating video without audio\n")
-
 		// Map only video
-		mapArgs = []string{"-map", "[xfout]", "video.mp4"}
+		config.MapArgs = []string{"-map", "[xfout]", "video.mp4"}
 	}
 
-	// Build the complete ffmpeg command.
-	args := []string{"-y"}
-	args = append(args, inputs...)
+	return config
+}
 
-	args = append(args, "-filter_complex", filterComplex)
-	args = append(args, mapArgs...)
-
-	// Video encoding settings with environment-specific optimization
-	args = append(args, getOptimalVideoSettings()...,
-	)
-
-	// Audio encoding settings (only if audio is present)
-	if hasAudio {
-		args = append(args,
-			"-c:a", "aac",
-			"-b:a", "192k",
-		)
-	}
-
-	args = append(args, "-t", fmt.Sprintf("%d", finalLength))
-
-	// Remove printing of the FFmpeg command.
+// runFFmpegCommand executes the ffmpeg command with progress indication
+func runFFmpegCommand(args []string, hasAudio bool, finalLength int) error {
 	cmd := exec.Command("ffmpeg", args...)
 
 	// Redirect FFmpeg logs to /dev/null.
 	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err != nil {
-		log.Fatalf("Failed to open /dev/null: %v", err)
+		return fmt.Errorf("failed to open /dev/null: %v", err)
 	}
 	cmd.Stdout = devNull
 	cmd.Stderr = devNull
 
 	if err := cmd.Start(); err != nil {
-		log.Fatalf("ffmpeg start failed: %v", err)
+		return fmt.Errorf("ffmpeg start failed: %v", err)
 	}
 
 	done := make(chan struct{})
@@ -733,11 +706,14 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) 
 
 	if err := cmd.Wait(); err != nil {
 		close(done)
-		log.Fatalf("ffmpeg command failed: %v", err)
+		return fmt.Errorf("ffmpeg command failed: %v", err)
 	}
 	close(done)
+	return nil
+}
 
-	// Display success message with video information
+// displayVideoInfo shows the final video information
+func displayVideoInfo(finalLength int) {
 	fmt.Printf("\n=== Video generated successfully! ===\n")
 	fmt.Printf("File: video.mp4\n")
 
@@ -758,6 +734,76 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) 
 			fmt.Printf("File Size: %.1f MB\n", sizeMB)
 		}
 	}
+}
+
+// GenerateVideo creates a video from already 4K images with crossfade transitions,
+// audio fades, and optionally a Ken Burns effect applied to each image.
+// If applyKenBurns is false, the images remain static.
+// If exifOverlay is true, camera info will be displayed in the bottom right corner.
+func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) {
+	// Find all converted .jpg files (4K resolution).
+	files, err := filepath.Glob("converted/*.jpg")
+	if err != nil {
+		log.Fatalf("Failed to list converted .jpg files: %v", err)
+	}
+
+	// Check if we have enough images to create a video
+	if len(files) == 0 {
+		log.Fatalf("No converted images found in 'converted/' directory.\nPlease convert your images first using the image conversion feature.")
+	}
+
+	if len(files) < 2 {
+		log.Fatalf("Not enough images found. Need at least 2 images to create a video with transitions.\nFound: %d image(s) in 'converted/' directory.", len(files))
+	}
+
+	fmt.Printf("Generating video from %d images...\n", len(files))
+
+	// Build inputs and process each image
+	inputs := []string{}
+	filterComplex := ""
+
+	for index, file := range files {
+		inputs = append(inputs, "-loop", "1", "-t", fmt.Sprintf("%d", duration), "-i", file)
+		videoFilter := processImageFilter(file, index, duration, fadeDuration, applyKenBurns, exifOverlay)
+		filterComplex += fmt.Sprintf("%s[v%d]; ", videoFilter, index)
+	}
+
+	// Add crossfade transitions
+	filterComplex += buildCrossfadeFilters(len(files), duration, fadeDuration)
+
+	// Add final filters and get duration
+	finalFilters, finalLength := buildFinalFilters(len(files), duration, fadeDuration)
+	filterComplex += finalFilters
+
+	// Setup audio processing
+	totalDuration := len(files)*duration - (len(files)-1)*fadeDuration
+	startFadeOut := totalDuration - fadeDuration
+	audioConfig := setupAudioProcessing(inputs, len(files), startFadeOut)
+
+	// Add audio filter to filter complex if audio is present
+	if audioConfig.HasAudio {
+		filterComplex += audioConfig.AudioFilter
+	}
+
+	// Build complete FFmpeg command
+	args := []string{"-y"}
+	args = append(args, audioConfig.Inputs...)
+	args = append(args, "-filter_complex", filterComplex)
+	args = append(args, audioConfig.MapArgs...)
+	args = append(args, getOptimalVideoSettings()...)
+
+	// Add audio encoding settings if audio is present
+	if audioConfig.HasAudio {
+		args = append(args, "-c:a", "aac", "-b:a", "192k")
+	}
+
+	args = append(args, "-t", fmt.Sprintf("%d", finalLength))
+
+	// Execute FFmpeg command
+	if err := runFFmpegCommand(args, audioConfig.HasAudio, finalLength); err != nil {
+		log.Fatalf("Video generation failed: %v", err)
+	} // Display final information
+	displayVideoInfo(finalLength)
 }
 
 // getKenBurnsEffect generates a Ken Burns effect using a fixed zoompan expression.
