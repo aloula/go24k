@@ -549,3 +549,148 @@ func TestConvertImages_OutputFormat(t *testing.T) {
 	// This test mainly ensures the function still works after format changes
 	t.Log("ConvertImages completed successfully with updated progress format")
 }
+
+func TestExtractCameraInfo(t *testing.T) {
+	// Test with non-existent file
+	t.Run("Non-existent file", func(t *testing.T) {
+		info, err := ExtractCameraInfo("nonexistent.jpg")
+		if err == nil {
+			t.Error("Expected error for non-existent file")
+		}
+		if info != nil {
+			t.Error("Expected nil info for non-existent file")
+		}
+	})
+
+	// Test with file without EXIF data (empty JPEG)
+	t.Run("File without EXIF", func(t *testing.T) {
+		// Create temporary test file without EXIF
+		tempDir := t.TempDir()
+		testFile := filepath.Join(tempDir, "no_exif.jpg")
+
+		createTestImage(t, testFile, 100, 100)
+
+		info, err := ExtractCameraInfo(testFile)
+		if err != nil {
+			t.Errorf("Expected no error for file without EXIF, got: %v", err)
+		}
+
+		// Should return empty struct, not nil
+		if info == nil {
+			t.Error("Expected non-nil info even without EXIF data")
+		}
+
+		// All fields should be empty
+		if info.Make != "" || info.Model != "" || info.LensModel != "" {
+			t.Error("Expected empty camera info for file without EXIF")
+		}
+	})
+}
+
+func TestFormatCameraInfoOverlay(t *testing.T) {
+	tests := []struct {
+		name     string
+		info     *CameraInfo
+		expected string
+	}{
+		{
+			name:     "Nil info",
+			info:     nil,
+			expected: "",
+		},
+		{
+			name:     "Empty info",
+			info:     &CameraInfo{},
+			expected: "",
+		},
+		{
+			name: "Full camera info",
+			info: &CameraInfo{
+				Make:         "Canon",
+				Model:        "EOS R5",
+				LensModel:    "RF 24-70mm F2.8 L IS USM",
+				FocalLength:  "50mm",
+				ISO:          "ISO 400",
+				ExposureTime: "1/125s",
+				FNumber:      "f/2.8",
+			},
+			expected: "Canon EOS R5\\nRF 24-70mm F2.8 L IS USM\\n50mm • f/2.8 • 1/125s • ISO 400",
+		},
+		{
+			name: "Camera without lens info",
+			info: &CameraInfo{
+				Make:         "Sony",
+				Model:        "A7R IV",
+				FocalLength:  "85mm",
+				ISO:          "ISO 800",
+				ExposureTime: "1/250s",
+				FNumber:      "f/1.4",
+			},
+			expected: "Sony A7R IV\\n85mm • f/1.4 • 1/250s • ISO 800",
+		},
+		{
+			name: "Only camera make and model",
+			info: &CameraInfo{
+				Make:  "Nikon",
+				Model: "D850",
+			},
+			expected: "Nikon D850",
+		},
+		{
+			name: "Partial technical settings",
+			info: &CameraInfo{
+				Make:        "Fujifilm",
+				Model:       "X-T4",
+				FocalLength: "35mm",
+				FNumber:     "f/2.0",
+			},
+			expected: "Fujifilm X-T4\\n35mm • f/2.0",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := FormatCameraInfoOverlay(tt.info)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestGetOriginalFilename(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(originalDir)
+
+	// Change to temp directory for testing
+	err = os.Chdir(tempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("Non-existent converted file", func(t *testing.T) {
+		result := GetOriginalFilename("converted/nonexistent_uhd.jpg")
+		if result != "" {
+			t.Errorf("Expected empty string for non-existent file, got %q", result)
+		}
+	})
+
+	t.Run("No original files available", func(t *testing.T) {
+		// Create converted directory and file
+		os.MkdirAll("converted", 0755)
+		createTestImage(t, "converted/20230101_120000_uhd.jpg", 100, 100)
+
+		result := GetOriginalFilename("converted/20230101_120000_uhd.jpg")
+		if result != "" {
+			t.Errorf("Expected empty string when no original files, got %q", result)
+		}
+	})
+
+	// Note: Testing with actual EXIF matching would require creating images with EXIF data,
+	// which is complex in a unit test environment. The function is designed to handle
+	// cases gracefully when EXIF data is not available.
+}

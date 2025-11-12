@@ -126,3 +126,62 @@ Total time: 11.2 sec.
 ### 🎵 **Audio Bitrate**
 - **128-320 kbps**: Áudio de boa qualidade
 - **"No audio"**: Nenhum MP3 encontrado no diretório
+
+## 📷 **NOVO: Exemplo com Legenda EXIF** 
+
+```
+Converting 4 images to 4K UHD...
+[1/4] | vacation_001.jpg...
+[2/4] | vacation_002.jpg...
+[3/4] | vacation_003.jpg...
+[4/4] | vacation_004.jpg...
+
+Hardware: NVIDIA NVENC detected - using GPU acceleration
+🎯 Generating video with EXIF overlay... ✓
+
+📹 Video Details:
+File Size: 42.8 MB
+Duration: 12.0 seconds
+Video Bitrate: 17.2 Mbps
+Audio Bitrate: 192 kbps
+Framerate: 30 fps
+Resolution: 4K UHD (3840x2160)
+Total time: 9.1 sec.
+```
+
+### **🎬 Legenda Exibida no Vídeo:**
+
+Rodapé direito com fundo semi-transparente:
+```
+Canon EOS R5
+RF 24-70mm F2.8 L IS USM
+85mm • f/1.8 • 1/200s • ISO 800
+```
+
+#### **Exemplos de Diferentes Câmeras:**
+
+**📱 Smartphone:**
+```
+Apple iPhone 15 Pro
+28mm • f/1.8 • 1/60s • ISO 125
+```
+
+**🎥 Mirrorless:**
+```
+Sony A7R V
+FE 24-70mm F2.8 GM II
+50mm • f/2.8 • 1/125s • ISO 400
+```
+
+**📸 DSLR:**
+```
+Nikon D850
+NIKKOR 85mm f/1.4G
+85mm • f/2.0 • 1/250s • ISO 200
+```
+
+**📷 Compacta:**
+```
+Fujifilm X100VI
+23mm • f/2.0 • 1/500s • ISO 160
+```

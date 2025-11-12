@@ -13,6 +13,17 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 )
 
+// CameraInfo contains EXIF data about the camera and photo settings
+type CameraInfo struct {
+	Make         string // Camera manufacturer
+	Model        string // Camera model
+	LensModel    string // Lens model
+	FocalLength  string // Focal length (e.g., "50mm")
+	ISO          string // ISO speed (e.g., "400")
+	ExposureTime string // Shutter speed (e.g., "1/125s")
+	FNumber      string // Aperture (e.g., "f/2.8")
+}
+
 // ConvertImages processes each .jpg file in the working directory, applies scaling,
 // compositing on a black background, and saves the output to the "converted" folder.
 func ConvertImages() error {
@@ -117,4 +128,164 @@ func FetchImageTimestamp(filename string) (string, error) {
 	}
 
 	return tm.Format("20060102_150405"), nil
+}
+
+// ExtractCameraInfo extracts camera and lens information from EXIF data
+func ExtractCameraInfo(filename string) (*CameraInfo, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = file.Close()
+	}()
+
+	x, err := exif.Decode(file)
+	if err != nil {
+		return &CameraInfo{}, nil // Return empty struct if no EXIF
+	}
+
+	info := &CameraInfo{}
+
+	// Extract camera make
+	if tag, err := x.Get(exif.Make); err == nil {
+		info.Make = strings.TrimSpace(tag.String())
+	}
+
+	// Extract camera model
+	if tag, err := x.Get(exif.Model); err == nil {
+		info.Model = strings.TrimSpace(tag.String())
+	}
+
+	// Extract lens model
+	if tag, err := x.Get(exif.LensModel); err == nil {
+		info.LensModel = strings.TrimSpace(tag.String())
+	}
+
+	// Extract focal length
+	if tag, err := x.Get(exif.FocalLength); err == nil {
+		// Try to get as rational number
+		if ratNum, ratDenom, err := tag.Rat2(0); err == nil && ratDenom != 0 {
+			focal := float64(ratNum) / float64(ratDenom)
+			info.FocalLength = fmt.Sprintf("%.0fmm", focal)
+		}
+	}
+
+	// Extract ISO
+	if tag, err := x.Get(exif.ISOSpeedRatings); err == nil {
+		if iso, err := tag.Int(0); err == nil {
+			info.ISO = fmt.Sprintf("ISO %d", iso)
+		}
+	}
+
+	// Extract exposure time (shutter speed)
+	if tag, err := x.Get(exif.ExposureTime); err == nil {
+		if expNum, expDenom, err := tag.Rat2(0); err == nil && expDenom != 0 {
+			exp := float64(expNum) / float64(expDenom)
+			if exp >= 1 {
+				info.ExposureTime = fmt.Sprintf("%.1fs", exp)
+			} else {
+				// Convert to fraction format (e.g., 1/125s)
+				denom := 1.0 / exp
+				info.ExposureTime = fmt.Sprintf("1/%.0fs", denom)
+			}
+		}
+	}
+
+	// Extract f-number (aperture)
+	if tag, err := x.Get(exif.FNumber); err == nil {
+		if fNum, fDenom, err := tag.Rat2(0); err == nil && fDenom != 0 {
+			f := float64(fNum) / float64(fDenom)
+			info.FNumber = fmt.Sprintf("f/%.1f", f)
+		}
+	}
+
+	return info, nil
+}
+
+// FormatCameraInfoOverlay formats camera information into a readable string for video overlay
+func FormatCameraInfoOverlay(info *CameraInfo) string {
+	if info == nil {
+		return ""
+	}
+
+	var parts []string
+
+	// Add camera info if available
+	if info.Make != "" && info.Model != "" {
+		parts = append(parts, fmt.Sprintf("%s %s", info.Make, info.Model))
+	} else if info.Model != "" {
+		parts = append(parts, info.Model)
+	}
+
+	// Add lens info if available
+	if info.LensModel != "" {
+		parts = append(parts, info.LensModel)
+	}
+
+	// Create second line with technical settings
+	var techSettings []string
+	if info.FocalLength != "" {
+		techSettings = append(techSettings, info.FocalLength)
+	}
+	if info.FNumber != "" {
+		techSettings = append(techSettings, info.FNumber)
+	}
+	if info.ExposureTime != "" {
+		techSettings = append(techSettings, info.ExposureTime)
+	}
+	if info.ISO != "" {
+		techSettings = append(techSettings, info.ISO)
+	}
+
+	if len(techSettings) > 0 {
+		parts = append(parts, strings.Join(techSettings, " • "))
+	}
+
+	return strings.Join(parts, "\\n")
+}
+
+// GetOriginalFilename attempts to find the original image file corresponding to a converted file
+// by matching the timestamp pattern in the converted filename
+func GetOriginalFilename(convertedFile string) string {
+	// Extract timestamp from converted filename
+	// Format: converted/YYYYMMDD_HHMMSS_uhd.jpg
+	baseName := filepath.Base(convertedFile)
+	timestamp := strings.TrimSuffix(baseName, "_uhd.jpg")
+
+	// Look for original files with matching timestamps
+	files, err := filepath.Glob("*.jpg")
+	if err != nil {
+		return ""
+	}
+
+	for _, file := range files {
+		// Skip if this is in the converted directory
+		if strings.Contains(file, "converted/") {
+			continue
+		}
+
+		// Extract timestamp from original file
+		originalTimestamp, err := FetchImageTimestamp(file)
+		if err != nil {
+			continue
+		}
+
+		if originalTimestamp == timestamp {
+			return file
+		}
+	}
+
+	// Fallback: try to match by similar naming patterns
+	for _, file := range files {
+		if strings.Contains(file, "converted/") {
+			continue
+		}
+
+		// If we can't find by timestamp, return the first available original file
+		// This is a simple fallback that works for single-image scenarios
+		return file
+	}
+
+	return ""
 }

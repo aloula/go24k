@@ -559,7 +559,8 @@ func ShowEnvironmentInfo() {
 // GenerateVideo creates a video from already 4K images with crossfade transitions,
 // audio fades, and optionally a Ken Burns effect applied to each image.
 // If applyKenBurns is false, the images remain static.
-func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
+// If exifOverlay is true, camera info will be displayed in the bottom right corner.
+func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool) {
 	// Find all converted .jpg files (4K resolution).
 	files, err := filepath.Glob("converted/*.jpg")
 	if err != nil {
@@ -654,6 +655,32 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns bool) {
 	// Build the complete ffmpeg command.
 	args := []string{"-y"}
 	args = append(args, inputs...)
+
+	// Add EXIF overlay if requested
+	if exifOverlay {
+		// Extract camera info from the first image
+		if len(files) > 0 {
+			// Get the original filename to extract EXIF data
+			originalFile := GetOriginalFilename(files[0])
+			if originalFile != "" {
+				cameraInfo, err := ExtractCameraInfo(originalFile)
+				if err == nil && cameraInfo != nil {
+					overlayText := FormatCameraInfoOverlay(cameraInfo)
+					if overlayText != "" {
+						// Add drawtext filter to the final output
+						filterComplex += fmt.Sprintf("[xfout]drawtext=text='%s':fontsize=24:fontcolor=white:x=w-tw-20:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5[xfout_overlay]; ", overlayText)
+						// Update map args to use overlay output
+						if hasAudio {
+							mapArgs = []string{"-map", "[xfout_overlay]", "-map", "[musicout]", "-shortest", "video.mp4"}
+						} else {
+							mapArgs = []string{"-map", "[xfout_overlay]", "video.mp4"}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	args = append(args, "-filter_complex", filterComplex)
 	args = append(args, mapArgs...)
 

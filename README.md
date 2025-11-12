@@ -35,6 +35,43 @@ Detecta automaticamente e usa a melhor opção disponível com **detecção real
 - **CPU libx264**: Fallback universal, funciona em qualquer sistema
   - CRF 21 para alta qualidade com compressão eficiente
 
+## 📷 Legenda EXIF Automática
+
+### 🆕 **Nova Funcionalidade: Overlay de Informações da Câmera**
+
+O Go24K agora pode extrair automaticamente informações técnicas das fotos e exibi-las como legenda no rodapé direito do vídeo.
+
+#### **Informações Exibidas:**
+- **Câmera**: Fabricante e modelo (ex: "Canon EOS R5")
+- **Lente**: Modelo da lente (ex: "RF 24-70mm F2.8 L IS USM")
+- **Configurações técnicas**:
+  - **Distância focal**: ex: "50mm"
+  - **Abertura**: ex: "f/2.8"
+  - **Velocidade do obturador**: ex: "1/125s"
+  - **ISO**: ex: "ISO 400"
+
+#### **Como Usar:**
+```bash
+# Habilitar legenda EXIF (desabilitada por padrão)
+./go24k -exif-overlay
+
+# Combinar com outras opções
+./go24k -exif-overlay -d 8 -t 2
+```
+
+#### **Exemplo de Legenda:**
+```
+Canon EOS R5
+RF 24-70mm F2.8 L IS USM
+50mm • f/2.8 • 1/125s • ISO 400
+```
+
+#### **Notas Técnicas:**
+- ✅ **Dados extraídos dos arquivos originais**: As informações vêm dos arquivos JPEG originais antes da conversão
+- ✅ **Fallback inteligente**: Se alguns dados EXIF não estiverem disponíveis, exibe apenas os disponíveis
+- ✅ **Posicionamento otimizado**: Rodapé direito com fundo semi-transparente para legibilidade
+- ✅ **Sem impacto na performance**: Extração rápida durante o processamento
+
 ## Requisitos
 
 - **FFmpeg** 4.0+ instalado no sistema (com `ffprobe`)
@@ -75,6 +112,7 @@ Detecta automaticamente e usa a melhor opção disponível com **detecção real
 
 #### Utilitários
 - `--debug` - **NOVO**: Mostra detecção completa de hardware e configurações FFmpeg
+- `--exif-overlay` - **NOVO**: Adiciona legenda com informações da câmera no rodapé direito
 - `--help` - Exibe ajuda com todas as opções
 
 **Exemplos:**
@@ -91,7 +129,10 @@ Detecta automaticamente e usa a melhor opção disponível com **detecção real
 # Apenas converter imagens para 4K
 ./go24k -convert-only
 
-# Verificar hardware disponível
+# Com legenda de informações da câmera
+./go24k -exif-overlay
+
+# Verificar hardware disponível  
 ./go24k --debug
 ```
 
@@ -256,6 +297,10 @@ O relatório de cobertura é gerado automaticamente em `coverage.html`.
 - ✅ **Configurações agressivas**: Media Foundation com 25M max bitrate
 
 #### 📊 **Funcionalidades Novas**
+- ✅ **Legenda EXIF automática**: Overlay no rodapé direito com informações da câmera
+  - Modelo da câmera e fabricante
+  - Modelo da lente (se disponível)
+  - Distância focal, abertura, velocidade do obturador, ISO
 - ✅ **Detalhes técnicos do vídeo**: Exibição automática de tamanho, bitrate, framerate
 - ✅ **Interface melhorada**: Spinner reposicionado, formato de progresso mais limpo
 - ✅ **Ambiente de desenvolvimento**: VS Code configurado para testes de integração

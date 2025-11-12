@@ -15,6 +15,7 @@ func main() {
 	duration := flag.Int("d", 5, "Duration per image in seconds")
 	transition := flag.Int("t", 1, "Transition (fade) duration in seconds")
 	debug := flag.Bool("debug", false, "Show environment detection and optimization info")
+	exifOverlay := flag.Bool("exif-overlay", false, "Add camera info overlay to video (right bottom corner)")
 	flag.Parse()
 
 	// Show debug info if requested
@@ -36,7 +37,7 @@ func main() {
 		// If -static is provided, applyKenBurns will be false.
 		applyKenBurns := !*static
 		// Pass the duration and transition values from the flags.
-		utils.GenerateVideo(*duration, *transition, applyKenBurns)
+		utils.GenerateVideo(*duration, *transition, applyKenBurns, *exifOverlay)
 	}
 
 	// Report processing time (only if not convert-only since conversion already shows its time)
