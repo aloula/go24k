@@ -147,20 +147,19 @@ run_static_analysis() {
         echo "$UNFORMATTED"
     fi
     
-    # Verificar se golint está instalado
-    if command -v golint &> /dev/null; then
+    # Verificar se golangci-lint está instalado
+    if command -v golangci-lint &> /dev/null; then
         echo ""
-        echo "🔍 Executando golint..."
-        LINT_OUTPUT=$(golint ./...)
-        if [ -z "$LINT_OUTPUT" ]; then
-            print_success "golint: nenhum problema encontrado"
+        echo "🔍 Executando golangci-lint..."
+        if golangci-lint run; then
+            print_success "golangci-lint: nenhum problema encontrado"
         else
-            print_warning "golint encontrou problemas:"
-            echo "$LINT_OUTPUT"
+            print_warning "golangci-lint encontrou problemas - verifique a saída acima"
         fi
     else
-        print_warning "golint não está instalado - pulando análise de lint"
-        echo "   Instale com: go install golang.org/x/lint/golint@latest"
+        print_warning "golangci-lint não está instalado - pulando análise de lint moderna"
+        echo "   Instale com: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+        echo "   Ou use: make lint-modern para análise completa"
     fi
 }
 
