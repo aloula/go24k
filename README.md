@@ -47,8 +47,9 @@ O Go24K agora pode extrair automaticamente informações técnicas das fotos e e
 - **Configurações técnicas**:
   - **Distância focal**: ex: "50mm"
   - **Abertura**: ex: "f/2.8"
-  - **Velocidade do obturador**: ex: "1/125s"
+  - **Velocidade do obturador**: ex: "1/125s" (NOVO)
   - **ISO**: ex: "ISO 400"
+- **Data**: Extraída dos dados EXIF (formato DD/MM/YYYY)
 
 #### **Como Usar:**
 ```bash
@@ -61,13 +62,8 @@ O Go24K agora pode extrair automaticamente informações técnicas das fotos e e
 
 #### **Exemplo de Legenda:**
 ```
-Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
+Canon - EOS R5 - 50mm - f/2.8 - 1/125s - ISO 400 - 15/08/2024
 ```
-
-#### **Formato de Overlay:**
-- **Separadores**: Dashes (-) para compatibilidade com Windows/FFmpeg
-- **Data da foto**: Formato DD.MM.YYYY extraído dos dados EXIF
-- **Layout compacto**: Informações em linha única com posicionamento configurável
 
 #### **Personalização:**
 ```bash
@@ -83,8 +79,10 @@ Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
 
 #### **Notas Técnicas:**
 - ✅ **Dados extraídos dos arquivos originais**: As informações vêm dos arquivos JPEG originais antes da conversão
+- ✅ **Cada imagem com seu próprio overlay**: Velocidade do obturador e outros dados são específicos de cada foto
 - ✅ **Fallback inteligente**: Se alguns dados EXIF não estiverem disponíveis, exibe apenas os disponíveis
 - ✅ **Posicionamento fixo no rodapé**: Centralizado com margem automática para máxima legibilidade
+- ✅ **Sem escaping de caracteres**: Usa arquivo de texto para evitar problemas com caracteres especiais (como / e :)
 - ✅ **Sem impacto na performance**: Extração rápida durante o processamento
 
 ## Requisitos
@@ -129,6 +127,7 @@ Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
 - `--debug` - **NOVO**: Mostra detecção completa de hardware e configurações FFmpeg
 - `--exif-overlay` - **NOVO**: Adiciona legenda com informações da câmera (rodapé centralizado)
 - `--overlay-font-size <pixels>` - **NOVO**: Tamanho da fonte do overlay (padrão: 36)
+- `--fit-audio` - Ajusta duração das fotos e transições para caber exatamente no tempo da música (primeiro MP3 encontrado)
 - `--help` - Exibe ajuda com todas as opções
 
 **Exemplos:**
@@ -156,6 +155,9 @@ Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
 
 # Configuração personalizada com duração longa
 ./go24k -exif-overlay -overlay-font-size 32 -d 6
+
+# Encaixar duração no tempo da música
+./go24k -fit-audio
 
 # Verificar hardware disponível  
 ./go24k --debug
@@ -230,6 +232,21 @@ Total time: 8.3 sec.
 - **Audio Bitrate**: Taxa do áudio (128-320 kbps) ou "No audio"
 - **Duration**: Tempo exato calculado do vídeo final
 - **Total time**: Tempo de processamento (conversão + geração)
+
+## 🎬 Transições e Efeitos
+
+### Fade-In / Fade-Out
+- ✅ **Fade-in automático**: Primeira imagem desaparece suavemente no início
+- ✅ **Fade-out automático**: Última imagem desaparece suavemente no fim
+- ✅ **Sincronização áudio-vídeo**: Audio fade usa mesma duração que video fade
+- ✅ **Transições crossfade**: Sobreposição suave entre imagens com duração configurável
+- ✅ **Duração configurável**: Use `-t <segundos>` para ajustar duração das transições
+
+**Exemplo:**
+```bash
+# Transições de 2 segundos (fade e crossfade)
+./go24k -t 2
+```
 
 ## Problemas Comuns
 
@@ -307,6 +324,31 @@ O projeto inclui uma suite completa de testes:
 O relatório de cobertura é gerado automaticamente em `coverage.html`.
 
 ## 🆕 Novidades Recentes
+
+### v2.3.0 - Dezembro 2025
+
+#### 🎵 **Melhorias de Áudio**
+- ✅ **Normalização de volume automática**: Usa EBU R128 loudnorm para volume consistente entre todas as faixas
+- ✅ **Validação fit-audio**: Verifica se áudio tem duração mínima necessária (5s/imagem + 1s/transição)
+- ✅ **Cálculo fit-audio aprimorado**: Ajustes mais precisos para múltiplas imagens
+
+#### 🪟 **Compatibilidade Windows**
+- ✅ **Filtros em arquivo**: Resolve limite de linha de comando do Windows para muitas imagens
+- ✅ **Suporte para 100+ imagens**: Funciona perfeitamente mesmo com grandes quantidades de fotos
+
+### v2.2.0 - Dezembro 2025
+
+#### 🎬 **Melhorias de Transições e Sincronização**
+- ✅ **Fade-out corrigido**: Última imagem agora desaparece corretamente com fade suave
+- ✅ **Audio/Video sincronizado**: Duração do fade de áudio agora corresponde ao fade de vídeo
+- ✅ **Trim e fade otimizados**: Ordem corrigida para garantir que fade-out é aplicado corretamente
+
+#### 📷 **Melhorias EXIF Overlay**
+- ✅ **Velocidade do obturador adicionada**: Mostra ex: "1/125s" junto com outros dados técnicos
+- ✅ **Overlay único por imagem**: Cada foto exibe seus próprios dados EXIF (não mais compartilhado)
+- ✅ **Data em formato DD/MM/YYYY**: Mais legível e internacional
+- ✅ **Sem problemas de escaping**: Usa arquivo de texto para evitar problemas com caracteres especiais (/, :)
+- ✅ **Compatibilidade total**: Funciona perfeitamente em Windows, macOS e Linux
 
 ### v2.1.0 - Novembro 2025
 

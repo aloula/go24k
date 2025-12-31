@@ -3,11 +3,13 @@ package utils
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -583,7 +585,7 @@ func processImageFilter(file string, index, duration, fadeDuration int, applyKen
 		originalFile := GetOriginalFilename(file)
 		if originalFile != "" {
 			if cameraInfo, err := ExtractCameraInfo(originalFile); err == nil && cameraInfo != nil {
-				drawtextFilter := FormatCameraInfoOverlay(cameraInfo, fontSize)
+				drawtextFilter := FormatCameraInfoOverlay(cameraInfo, fontSize, index)
 				if drawtextFilter != "" {
 					videoFilter += drawtextFilter
 				}
@@ -614,13 +616,21 @@ func buildCrossfadeFilters(numImages, duration, fadeDuration int) string {
 
 // buildFinalFilters creates the fade-out and trim filters
 func buildFinalFilters(numImages, duration, fadeDuration int) (string, int) {
-	totalDuration := numImages*duration - (numImages-1)*fadeDuration
-	startFadeOut := totalDuration - fadeDuration
 	finalLength := (numImages * duration) - ((numImages - 1) * fadeDuration)
+	// After trim and setpts, fade-out should start at (finalLength - fadeDuration)
+	fadeOutStart := finalLength - fadeDuration
 
 	var filterComplex string
-	filterComplex += fmt.Sprintf("[x%d]fade=t=out:st=%d:d=%d[xf]; ", numImages-1, startFadeOut, fadeDuration)
-	filterComplex += fmt.Sprintf("[xf]trim=duration=%d,setpts=PTS-STARTPTS[xfout]; ", finalLength)
+	// For a single image, use [v0] as there's no crossfade; otherwise use the last crossfade output [x(n-1)]
+	var inputLabel string
+	if numImages == 1 {
+		inputLabel = "v0"
+	} else {
+		inputLabel = fmt.Sprintf("x%d", numImages-1)
+	}
+	// Apply trim first, then fade-out on the trimmed video
+	filterComplex += fmt.Sprintf("[%s]trim=duration=%d,setpts=PTS-STARTPTS[xt]; ", inputLabel, finalLength)
+	filterComplex += fmt.Sprintf("[xt]fade=t=out:st=%d:d=%d[xfout]; ", fadeOutStart, fadeDuration)
 
 	return filterComplex, finalLength
 }
@@ -633,24 +643,172 @@ type AudioConfig struct {
 	HasAudio    bool
 }
 
-// setupAudioProcessing handles audio input and processing
-func setupAudioProcessing(inputs []string, index, startFadeOut int) AudioConfig {
+// findMusicFiles returns the list of mp3 files without logging
+func findMusicFiles() ([]string, error) {
 	musicFiles, err := filepath.Glob("*.mp3")
 	if err != nil {
-		log.Fatalf("Failed to list mp3 files: %v", err)
+		return nil, fmt.Errorf("failed to list mp3 files: %v", err)
+	}
+	// Sort music files alphabetically for consistent ordering
+	sort.Strings(musicFiles)
+	return musicFiles, nil
+}
+
+// createAudioConcatFile creates a concat demuxer file for multiple audio files
+func createAudioConcatFile(musicFiles []string) (string, error) {
+	if len(musicFiles) == 0 {
+		return "", fmt.Errorf("no music files provided")
 	}
 
+	// If only one file, return it directly
+	if len(musicFiles) == 1 {
+		return musicFiles[0], nil
+	}
+
+	// Create concat demuxer file for multiple audio files
+	concatFile := "audio_concat.txt"
+	var content strings.Builder
+
+	for _, file := range musicFiles {
+		// Escape single quotes in filenames
+		escapedFile := strings.ReplaceAll(file, "'", "'\\''")
+		content.WriteString(fmt.Sprintf("file '%s'\n", escapedFile))
+	}
+
+	if err := os.WriteFile(concatFile, []byte(content.String()), 0644); err != nil {
+		return "", fmt.Errorf("failed to create concat file: %v", err)
+	}
+
+	return concatFile, nil
+}
+
+// getTotalAudioDurationSeconds returns the total audio length in seconds for multiple files
+func getTotalAudioDurationSeconds(musicFiles []string) (float64, error) {
+	if len(musicFiles) == 0 {
+		return 0, fmt.Errorf("no music files provided")
+	}
+
+	totalDuration := 0.0
+
+	for _, file := range musicFiles {
+		dur, err := getAudioDurationSeconds(file)
+		if err != nil {
+			return 0, err
+		}
+		totalDuration += dur
+	}
+
+	return totalDuration, nil
+}
+
+// getAudioDurationSeconds returns audio length in seconds using ffprobe
+func getAudioDurationSeconds(filename string) (float64, error) {
+	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filename)
+	output, err := cmd.Output()
+	if err != nil {
+		return 0, fmt.Errorf("ffprobe duration failed: %v", err)
+	}
+	durStr := strings.TrimSpace(string(output))
+	if durStr == "" {
+		return 0, fmt.Errorf("empty duration from ffprobe")
+	}
+	dur, err := strconv.ParseFloat(durStr, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse duration: %w", err)
+	}
+	return dur, nil
+}
+
+// adjustDurationsToMusic scales image and transition durations to fit audio length
+func adjustDurationsToMusic(duration, fadeDuration, numImages int, audioSeconds float64) (int, int, bool) {
+	if audioSeconds <= 0 || numImages < 2 {
+		return duration, fadeDuration, false
+	}
+
+	baseTotal := float64(numImages*duration - (numImages-1)*fadeDuration)
+	if baseTotal <= 0 {
+		return duration, fadeDuration, false
+	}
+
+	scale := audioSeconds / baseTotal
+	newDuration := int(math.Round(float64(duration) * scale))
+	newFade := int(math.Round(float64(fadeDuration) * scale))
+
+	if newDuration < 1 {
+		newDuration = 1
+	}
+	if newFade < 1 {
+		newFade = 1
+	}
+	if newFade >= newDuration {
+		newFade = int(math.Max(1, float64(newDuration/2)))
+		if newFade >= newDuration {
+			newDuration = newFade + 1
+		}
+	}
+
+	// Fine-tune to reduce residual difference
+	// Each 1-second change in duration affects total by numImages seconds
+	// Each 1-second change in fade affects total by -(numImages-1) seconds
+	newTotal := float64(numImages*newDuration - (numImages-1)*newFade)
+	diff := audioSeconds - newTotal
+
+	// If difference is small relative to image count, it's not worth adjusting
+	// (since adjusting by 1 second affects total by numImages seconds)
+	if math.Abs(diff) >= float64(numImages)/2 {
+		// Prefer adjusting fade duration since it has smaller impact
+		adjust := int(math.Round(diff / float64(numImages-1)))
+		if adjust != 0 {
+			newFade += adjust
+		}
+	}
+
+	// Safety check
+	if newFade < 1 {
+		newFade = 1
+	}
+	if newFade >= newDuration {
+		newFade = int(math.Max(1, float64(newDuration/2)))
+	}
+
+	return newDuration, newFade, true
+}
+
+// setupAudioProcessing handles audio input and processing
+func setupAudioProcessing(inputs []string, index, startFadeOut, fadeDuration int, musicFiles []string) AudioConfig {
 	config := AudioConfig{
 		Inputs:   inputs,
 		HasAudio: len(musicFiles) > 0,
 	}
 
 	if config.HasAudio {
-		fmt.Printf("Audio file found: %s\n", musicFiles[0])
-		config.Inputs = append(config.Inputs, "-i", musicFiles[0])
+		if len(musicFiles) > 1 {
+			// Multiple audio files: use concat demuxer
+			fmt.Printf("Audio files found: %d MP3 files\n", len(musicFiles))
+			for _, file := range musicFiles {
+				fmt.Printf("  - %s\n", file)
+			}
 
-		// Apply audio fades.
-		config.AudioFilter = fmt.Sprintf("[%d:a]afade=t=in:st=0:d=2,afade=t=out:st=%d:d=4[musicout]; ", index, startFadeOut-4)
+			// Create concat file
+			concatFile, err := createAudioConcatFile(musicFiles)
+			if err != nil {
+				fmt.Printf("Warning: Failed to create audio concat: %v\n", err)
+				fmt.Printf("Using single audio file: %s\n", musicFiles[0])
+				config.Inputs = append(config.Inputs, "-i", musicFiles[0])
+			} else {
+				// Use concat demuxer to merge all audio files
+				config.Inputs = append(config.Inputs, "-f", "concat", "-safe", "0", "-i", concatFile)
+			}
+		} else {
+			// Single audio file
+			fmt.Printf("Audio file found: %s\n", musicFiles[0])
+			config.Inputs = append(config.Inputs, "-i", musicFiles[0])
+		}
+
+		// Apply audio normalization and fades
+		// loudnorm normalizes volume to a consistent level across all tracks
+		// Then apply fade in/out using the same duration as video fades
+		config.AudioFilter = fmt.Sprintf("[%d:a]loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=in:st=0:d=%d,afade=t=out:st=%d:d=%d[musicout]; ", index, fadeDuration, startFadeOut-fadeDuration, fadeDuration)
 
 		// Map video and audio
 		config.MapArgs = []string{"-map", "[xfout]", "-map", "[musicout]", "-shortest", "video.mp4"}
@@ -739,7 +897,7 @@ func displayVideoInfo(finalLength int) {
 // audio fades, and optionally a Ken Burns effect applied to each image.
 // If applyKenBurns is false, the images remain static.
 // If exifOverlay is true, camera info will be displayed in the footer with specified fontSize.
-func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int) {
+func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int, fitAudio bool) {
 	// Find all converted .jpg files (4K resolution).
 	files, err := filepath.Glob("converted/*.jpg")
 	if err != nil {
@@ -757,6 +915,47 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 
 	fmt.Printf("Generating video from %d images...\n", len(files))
 
+	// Detect music files once
+	musicFiles, err := findMusicFiles()
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+
+	// Auto-fit durations to music length if requested and audio exists
+	if fitAudio {
+		if len(musicFiles) == 0 {
+			fmt.Printf("fit-audio requested but no MP3 found; using provided durations.\n")
+		} else if len(musicFiles) > 1 {
+			// Multiple audio files: get total duration
+			if audioSeconds, err := getTotalAudioDurationSeconds(musicFiles); err == nil && audioSeconds > 0 {
+				// Check minimum required audio length (5s per image, 1s transitions)
+				minLength := float64(len(files)*5 - (len(files) - 1))
+				if audioSeconds < minLength {
+					log.Fatalf("Audio duration (%.1fs) is too short for %d images.\nMinimum required: %.1fs (5s per image × %d - 1s transitions × %d)\nPlease use fewer images or add more audio files.", audioSeconds, len(files), minLength, len(files), len(files)-1)
+				}
+				oldDuration, oldFade := duration, fadeDuration
+				duration, fadeDuration, _ = adjustDurationsToMusic(duration, fadeDuration, len(files), audioSeconds)
+				fmt.Printf("Auto-fit to music (%.1fs total): duration %ds → %ds, transition %ds → %ds\n", audioSeconds, oldDuration, duration, oldFade, fadeDuration)
+			} else {
+				fmt.Printf("fit-audio requested but could not read music duration; using provided durations.\n")
+			}
+		} else {
+			// Single audio file
+			if audioSeconds, err := getAudioDurationSeconds(musicFiles[0]); err == nil && audioSeconds > 0 {
+				// Check minimum required audio length (5s per image, 1s transitions)
+				minLength := float64(len(files)*5 - (len(files) - 1))
+				if audioSeconds < minLength {
+					log.Fatalf("Audio duration (%.1fs) is too short for %d images.\nMinimum required: %.1fs (5s per image × %d - 1s transitions × %d)\nPlease use fewer images or add more audio files.", audioSeconds, len(files), minLength, len(files), len(files)-1)
+				}
+				oldDuration, oldFade := duration, fadeDuration
+				duration, fadeDuration, _ = adjustDurationsToMusic(duration, fadeDuration, len(files), audioSeconds)
+				fmt.Printf("Auto-fit to music (%.1fs): duration %ds → %ds, transition %ds → %ds\n", audioSeconds, oldDuration, duration, oldFade, fadeDuration)
+			} else {
+				fmt.Printf("fit-audio requested but could not read music duration; using provided durations.\n")
+			}
+		}
+	}
+
 	// Build inputs and process each image
 	inputs := []string{}
 	filterComplex := ""
@@ -765,7 +964,9 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 		inputs = append(inputs, "-loop", "1", "-t", fmt.Sprintf("%d", duration), "-i", file)
 		videoFilter := processImageFilter(file, index, duration, fadeDuration, applyKenBurns, exifOverlay, fontSize)
 		filterComplex += fmt.Sprintf("%s[v%d]; ", videoFilter, index)
-	} // Add crossfade transitions
+	}
+
+	// Add crossfade transitions
 	filterComplex += buildCrossfadeFilters(len(files), duration, fadeDuration)
 
 	// Add final filters and get duration
@@ -775,17 +976,24 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	// Setup audio processing
 	totalDuration := len(files)*duration - (len(files)-1)*fadeDuration
 	startFadeOut := totalDuration - fadeDuration
-	audioConfig := setupAudioProcessing(inputs, len(files), startFadeOut)
+	audioConfig := setupAudioProcessing(inputs, len(files), startFadeOut, fadeDuration, musicFiles)
 
 	// Add audio filter to filter complex if audio is present
 	if audioConfig.HasAudio {
 		filterComplex += audioConfig.AudioFilter
 	}
 
+	// Write filter complex to a file to avoid Windows command line length limits
+	filterComplexFile := "filter_complex.txt"
+	if err := os.WriteFile(filterComplexFile, []byte(filterComplex), 0644); err != nil {
+		log.Fatalf("Failed to write filter complex file: %v", err)
+	}
+	defer os.Remove(filterComplexFile)
+
 	// Build complete FFmpeg command
 	args := []string{"-y"}
 	args = append(args, audioConfig.Inputs...)
-	args = append(args, "-filter_complex", filterComplex)
+	args = append(args, "-filter_complex_script", filterComplexFile)
 	args = append(args, audioConfig.MapArgs...)
 	args = append(args, getOptimalVideoSettings()...)
 
@@ -799,7 +1007,14 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	// Execute FFmpeg command
 	if err := runFFmpegCommand(args, audioConfig.HasAudio); err != nil {
 		log.Fatalf("Video generation failed: %v", err)
-	} // Display final information
+	}
+
+	// Clean up concat file if it was created
+	if len(musicFiles) > 1 {
+		os.Remove("audio_concat.txt")
+	}
+
+	// Display final information
 	displayVideoInfo(finalLength)
 }
 

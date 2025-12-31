@@ -14,6 +14,7 @@ func main() {
 	static := flag.Bool("static", false, "Do NOT apply Ken Burns effect; use static images with transitions")
 	duration := flag.Int("d", 5, "Duration per image in seconds")
 	transition := flag.Int("t", 1, "Transition (fade) duration in seconds")
+	fitAudio := flag.Bool("fit-audio", false, "Auto-fit image and transition durations to fill the music length")
 	debug := flag.Bool("debug", false, "Show environment detection and optimization info")
 	exifOverlay := flag.Bool("exif-overlay", false, "Add camera info overlay to video (bottom center)")
 	overlayFontSize := flag.Int("overlay-font-size", 36, "Font size for EXIF overlay (default: 36)")
@@ -34,6 +35,7 @@ func main() {
 		fmt.Printf("  go24k -static                              # Disable Ken Burns effect\n")
 		fmt.Printf("  go24k -exif-overlay                        # Add camera info overlay\n")
 		fmt.Printf("  go24k -exif-overlay -overlay-font-size 48  # Large font overlay\n")
+		fmt.Printf("  go24k -fit-audio                         # Auto-fit duration to music length\n")
 		fmt.Printf("  go24k -convert-only                        # Only convert images to 4K\n")
 		fmt.Printf("  go24k -debug                               # Show hardware detection info\n")
 		fmt.Printf("\nFor more information: https://github.com/aloula/go24k\n")
@@ -79,7 +81,7 @@ func main() {
 		// If -static is provided, applyKenBurns will be false.
 		applyKenBurns := !*static
 		// Pass the duration and transition values from the flags.
-		utils.GenerateVideo(*duration, *transition, applyKenBurns, *exifOverlay, *overlayFontSize)
+		utils.GenerateVideo(*duration, *transition, applyKenBurns, *exifOverlay, *overlayFontSize, *fitAudio)
 	}
 
 	// Report processing time (only if not convert-only since conversion already shows its time)

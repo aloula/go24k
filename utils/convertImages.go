@@ -244,14 +244,14 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 		dateStr = strings.Trim(dateStr, `"`)
 		// Parse EXIF date format: "2006:01:02 15:04:05"
 		if t, err := time.Parse("2006:01:02 15:04:05", dateStr); err == nil {
-			info.DateTaken = t.Format("02.01.2006")
+			info.DateTaken = t.Format("02/01/2006")
 		}
 	} else if tag, err := x.Get(exif.DateTime); err == nil {
 		// Fallback to DateTime if DateTimeOriginal is not available
 		dateStr := strings.TrimSpace(tag.String())
 		dateStr = strings.Trim(dateStr, `"`)
 		if t, err := time.Parse("2006:01:02 15:04:05", dateStr); err == nil {
-			info.DateTaken = t.Format("02.01.2006")
+			info.DateTaken = t.Format("02/01/2006")
 		}
 	}
 
@@ -260,7 +260,7 @@ func ExtractCameraInfo(filename string) (*CameraInfo, error) {
 
 // FormatCameraInfoOverlay formats camera information and creates FFmpeg drawtext filter
 // with specified fontSize, positioned in the footer (bottom center)
-func FormatCameraInfoOverlay(info *CameraInfo, fontSize int) string {
+func FormatCameraInfoOverlay(info *CameraInfo, fontSize, imageIndex int) string {
 	if info == nil {
 		return ""
 	}
@@ -287,6 +287,9 @@ func FormatCameraInfoOverlay(info *CameraInfo, fontSize int) string {
 	if info.FNumber != "" {
 		techSettings = append(techSettings, info.FNumber)
 	}
+	if info.ExposureTime != "" {
+		techSettings = append(techSettings, info.ExposureTime)
+	}
 	if info.ISO != "" {
 		techSettings = append(techSettings, info.ISO)
 	}
@@ -298,7 +301,7 @@ func FormatCameraInfoOverlay(info *CameraInfo, fontSize int) string {
 	} else {
 		// Fallback to current date if no date found in EXIF
 		currentTime := time.Now()
-		dateStr = currentTime.Format("02.01.2006")
+		dateStr = currentTime.Format("02/01/2006")
 	}
 
 	// Build final string: "Camera - TechSettings - Date"
@@ -309,19 +312,30 @@ func FormatCameraInfoOverlay(info *CameraInfo, fontSize int) string {
 		overlayText = fmt.Sprintf("%s - %s", cameraName, dateStr)
 	}
 
-	// For Windows: remove/replace problematic characters and escape spaces
-	overlayText = strings.ReplaceAll(overlayText, "|", "-")   // Replace pipes with dashes
-	overlayText = strings.ReplaceAll(overlayText, "/", ".")   // Replace slashes with dots
-	overlayText = strings.ReplaceAll(overlayText, ":", " ")   // Replace colons with spaces
-	overlayText = strings.ReplaceAll(overlayText, " ", "\\ ") // Escape spaces for FFmpeg
+	// Write text to a temporary file to avoid escaping issues
+	// Each image gets its own overlay file
+	textFile := fmt.Sprintf("converted/overlay_%d.txt", imageIndex)
+	if err := os.WriteFile(textFile, []byte(overlayText), 0644); err != nil {
+		// Fallback to inline text with escaping if file write fails
+		overlayText = strings.ReplaceAll(overlayText, "|", "-")
+		overlayText = strings.ReplaceAll(overlayText, ":", " ")
+		overlayText = strings.ReplaceAll(overlayText, "/", "\\/")
+		overlayText = strings.ReplaceAll(overlayText, " ", "\\ ")
+
+		xPosition := "(w-tw)/2"
+		yPosition := "h-th-20"
+		return fmt.Sprintf(",drawtext=text=%s:fontsize=%d:fontcolor=white:x=%s:y=%s:box=1:boxcolor=black@0.5:boxborderw=5",
+			overlayText, fontSize, xPosition, yPosition)
+	}
 
 	// Position fixed at footer (bottom center)
 	xPosition := "(w-tw)/2" // Horizontal center
 	yPosition := "h-th-20"  // Bottom with 20px margin
 
-	// Build the complete FFmpeg drawtext filter
-	drawtextFilter := fmt.Sprintf(",drawtext=text=%s:fontsize=%d:fontcolor=white:x=%s:y=%s:box=1:boxcolor=black@0.5:boxborderw=5",
-		overlayText, fontSize, xPosition, yPosition)
+	// Build the complete FFmpeg drawtext filter using textfile parameter with reload
+	// Add reload=1 to force FFmpeg to read the file content for each frame
+	drawtextFilter := fmt.Sprintf(",drawtext=textfile='%s':reload=1:fontsize=%d:fontcolor=white:x=%s:y=%s:box=1:boxcolor=black@0.5:boxborderw=5",
+		textFile, fontSize, xPosition, yPosition)
 
 	return drawtextFilter
 }

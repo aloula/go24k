@@ -661,7 +661,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FormatCameraInfoOverlay(tt.info, tt.fontSize)
+			result := FormatCameraInfoOverlay(tt.info, tt.fontSize, 0)
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
