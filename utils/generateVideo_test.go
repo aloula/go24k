@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -190,7 +191,7 @@ func TestGetOptimalVideoSettings(t *testing.T) {
 func TestGetKenBurnsEffect(t *testing.T) {
 	testCases := []struct {
 		name     string
-		duration int
+		duration float64
 	}{
 		{"Short duration", 3},
 		{"Medium duration", 5},
@@ -216,13 +217,13 @@ func TestGetKenBurnsEffect(t *testing.T) {
 			}
 
 			// Should contain duration
-			expectedFrames := tc.duration * 30
-			if !strings.Contains(effect, string(rune(expectedFrames))) {
+			expectedFrames := int(tc.duration * 30)
+			if !strings.Contains(effect, strconv.Itoa(expectedFrames)) {
 				// This is a rough check - the actual number formatting might differ
 				t.Logf("Effect might not contain expected frames %d", expectedFrames)
 			}
 
-			t.Logf("Duration %d -> Effect: %s", tc.duration, effect)
+			t.Logf("Duration %.0f -> Effect: %s", tc.duration, effect)
 		})
 	}
 }
@@ -356,8 +357,8 @@ func TestKenBurnsEffect_EdgeCases(t *testing.T) {
 		if !strings.Contains(effect, "zoompan") {
 			t.Error("Expected zoompan filter in output")
 		}
-		if !strings.Contains(effect, "d=0") {
-			t.Error("Expected duration 0 in output")
+		if !strings.Contains(effect, "d=1") {
+			t.Error("Expected clamped minimum duration (d=1) in output")
 		}
 	})
 

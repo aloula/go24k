@@ -620,7 +620,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken:    "15.08.2024",
 			},
 			fontSize: 36,
-			expected: ",drawtext=text=Canon\\ -\\ EOS\\ R5\\ -\\ 50mm\\ -\\ f.2.8\\ -\\ ISO\\ 400\\ -\\ 15.08.2024:fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=Canon\\ -\\ EOS\\ R5\\ -\\ 50mm\\ -\\ f\\/2.8\\ -\\ 1\\/125s\\ -\\ ISO\\ 400\\ -\\ 15.08.2024:fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
 			name: "Camera with large font",
@@ -633,7 +633,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken:   "22.06.2024",
 			},
 			fontSize: 48,
-			expected: ",drawtext=text=Sony\\ -\\ A7R\\ IV\\ -\\ 85mm\\ -\\ f.1.4\\ -\\ ISO\\ 800\\ -\\ 22.06.2024:fontsize=48:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=Sony\\ -\\ A7R\\ IV\\ -\\ 85mm\\ -\\ f\\/1.4\\ -\\ ISO\\ 800\\ -\\ 22.06.2024:fontsize=48:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
 			name: "Basic camera info",
@@ -655,7 +655,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken:   "10.03.2024",
 			},
 			fontSize: 32,
-			expected: ",drawtext=text=Fujifilm\\ -\\ X-T4\\ -\\ 35mm\\ -\\ f.2.0\\ -\\ 10.03.2024:fontsize=32:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=Fujifilm\\ -\\ X-T4\\ -\\ 35mm\\ -\\ f\\/2.0\\ -\\ 10.03.2024:fontsize=32:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 	}
 

@@ -558,8 +558,16 @@ func ShowEnvironmentInfo() {
 	fmt.Printf("  • Hardware encoders use equivalent quality settings\n")
 }
 
+// formatSeconds ensures FFmpeg receives consistent decimal timing values.
+func formatSeconds(seconds float64) string {
+	if seconds < 0 {
+		seconds = 0
+	}
+	return strconv.FormatFloat(seconds, 'f', 3, 64)
+}
+
 // processImageFilter creates the video filter for a single image
-func processImageFilter(file string, index, duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int) string {
+func processImageFilter(file string, index int, duration, fadeDuration float64, applyKenBurns, exifOverlay bool, fontSize int) string {
 	var videoFilter string
 
 	if applyKenBurns {
@@ -567,14 +575,14 @@ func processImageFilter(file string, index, duration, fadeDuration int, applyKen
 		effect := getKenBurnsEffect(duration)
 		if index == 0 {
 			// For the first image, apply the effect followed by a fade-in.
-			videoFilter = fmt.Sprintf("[0:v]%s,fade=t=in:st=0:d=%d", effect, fadeDuration)
+			videoFilter = fmt.Sprintf("[0:v]%s,fade=t=in:st=0:d=%s", effect, formatSeconds(fadeDuration))
 		} else {
 			videoFilter = fmt.Sprintf("[%d:v]%s", index, effect)
 		}
 	} else {
 		// Static: no zoom/pan effect.
 		if index == 0 {
-			videoFilter = fmt.Sprintf("[0:v]fade=t=in:st=0:d=%d", fadeDuration)
+			videoFilter = fmt.Sprintf("[0:v]fade=t=in:st=0:d=%s", formatSeconds(fadeDuration))
 		} else {
 			videoFilter = fmt.Sprintf("[%d:v]copy", index)
 		}
@@ -597,17 +605,17 @@ func processImageFilter(file string, index, duration, fadeDuration int, applyKen
 }
 
 // buildCrossfadeFilters creates the crossfade transition filters
-func buildCrossfadeFilters(numImages, duration, fadeDuration int) string {
+func buildCrossfadeFilters(numImages int, duration, fadeDuration float64) string {
 	var filterComplex string
 
 	// Generate crossfade transitions.
 	for i := 0; i < numImages-1; i++ {
 		next := i + 1
-		offset := (i + 1) * (duration - fadeDuration)
+		offset := float64(i+1) * (duration - fadeDuration)
 		if i == 0 {
-			filterComplex += fmt.Sprintf("[v%d][v%d]xfade=transition=fade:duration=%d:offset=%d[x%d]; ", i, next, fadeDuration, offset, next)
+			filterComplex += fmt.Sprintf("[v%d][v%d]xfade=transition=fade:duration=%s:offset=%s[x%d]; ", i, next, formatSeconds(fadeDuration), formatSeconds(offset), next)
 		} else {
-			filterComplex += fmt.Sprintf("[x%d][v%d]xfade=transition=fade:duration=%d:offset=%d[x%d]; ", i, next, fadeDuration, offset, next)
+			filterComplex += fmt.Sprintf("[x%d][v%d]xfade=transition=fade:duration=%s:offset=%s[x%d]; ", i, next, formatSeconds(fadeDuration), formatSeconds(offset), next)
 		}
 	}
 
@@ -615,8 +623,8 @@ func buildCrossfadeFilters(numImages, duration, fadeDuration int) string {
 }
 
 // buildFinalFilters creates the fade-out and trim filters
-func buildFinalFilters(numImages, duration, fadeDuration int) (string, int) {
-	finalLength := (numImages * duration) - ((numImages - 1) * fadeDuration)
+func buildFinalFilters(numImages int, duration, fadeDuration float64) (string, float64) {
+	finalLength := (float64(numImages) * duration) - (float64(numImages-1) * fadeDuration)
 	// After trim and setpts, fade-out should start at (finalLength - fadeDuration)
 	fadeOutStart := finalLength - fadeDuration
 
@@ -629,8 +637,8 @@ func buildFinalFilters(numImages, duration, fadeDuration int) (string, int) {
 		inputLabel = fmt.Sprintf("x%d", numImages-1)
 	}
 	// Apply trim first, then fade-out on the trimmed video
-	filterComplex += fmt.Sprintf("[%s]trim=duration=%d,setpts=PTS-STARTPTS[xt]; ", inputLabel, finalLength)
-	filterComplex += fmt.Sprintf("[xt]fade=t=out:st=%d:d=%d[xfout]; ", fadeOutStart, fadeDuration)
+	filterComplex += fmt.Sprintf("[%s]trim=duration=%s,setpts=PTS-STARTPTS[xt]; ", inputLabel, formatSeconds(finalLength))
+	filterComplex += fmt.Sprintf("[xt]fade=t=out:st=%s:d=%s[xfout]; ", formatSeconds(fadeOutStart), formatSeconds(fadeDuration))
 
 	return filterComplex, finalLength
 }
@@ -720,19 +728,19 @@ func getAudioDurationSeconds(filename string) (float64, error) {
 }
 
 // adjustDurationsToMusic scales image and transition durations to fit audio length
-func adjustDurationsToMusic(duration, fadeDuration, numImages int, audioSeconds float64) (int, int, bool) {
+func adjustDurationsToMusic(duration, fadeDuration float64, numImages int, audioSeconds float64) (float64, float64, bool) {
 	if audioSeconds <= 0 || numImages < 2 {
 		return duration, fadeDuration, false
 	}
 
-	baseTotal := float64(numImages*duration - (numImages-1)*fadeDuration)
+	baseTotal := (float64(numImages) * duration) - (float64(numImages-1) * fadeDuration)
 	if baseTotal <= 0 {
 		return duration, fadeDuration, false
 	}
 
 	scale := audioSeconds / baseTotal
-	newDuration := int(math.Round(float64(duration) * scale))
-	newFade := int(math.Round(float64(fadeDuration) * scale))
+	newDuration := duration * scale
+	newFade := fadeDuration * scale
 
 	if newDuration < 1 {
 		newDuration = 1
@@ -741,25 +749,21 @@ func adjustDurationsToMusic(duration, fadeDuration, numImages int, audioSeconds 
 		newFade = 1
 	}
 	if newFade >= newDuration {
-		newFade = int(math.Max(1, float64(newDuration/2)))
+		newFade = math.Max(1, newDuration*0.5)
 		if newFade >= newDuration {
-			newDuration = newFade + 1
+			newDuration = newFade + 0.1
 		}
 	}
 
 	// Fine-tune to reduce residual difference
-	// Each 1-second change in duration affects total by numImages seconds
-	// Each 1-second change in fade affects total by -(numImages-1) seconds
-	newTotal := float64(numImages*newDuration - (numImages-1)*newFade)
+	newTotal := (float64(numImages) * newDuration) - (float64(numImages-1) * newFade)
 	diff := audioSeconds - newTotal
 
-	// If difference is small relative to image count, it's not worth adjusting
-	// (since adjusting by 1 second affects total by numImages seconds)
-	if math.Abs(diff) >= float64(numImages)/2 {
-		// Prefer adjusting fade duration since it has smaller impact
-		adjust := int(math.Round(diff / float64(numImages-1)))
-		if adjust != 0 {
-			newFade += adjust
+	// Adjust duration to absorb any residual mismatch after clamping
+	if math.Abs(diff) >= 0.01 {
+		newDuration += diff / float64(numImages)
+		if newDuration < 1 {
+			newDuration = 1
 		}
 	}
 
@@ -768,14 +772,14 @@ func adjustDurationsToMusic(duration, fadeDuration, numImages int, audioSeconds 
 		newFade = 1
 	}
 	if newFade >= newDuration {
-		newFade = int(math.Max(1, float64(newDuration/2)))
+		newFade = math.Max(1, newDuration*0.5)
 	}
 
 	return newDuration, newFade, true
 }
 
 // setupAudioProcessing handles audio input and processing
-func setupAudioProcessing(inputs []string, index, startFadeOut, fadeDuration int, musicFiles []string) AudioConfig {
+func setupAudioProcessing(inputs []string, index int, startFadeOut, fadeDuration float64, musicFiles []string) AudioConfig {
 	config := AudioConfig{
 		Inputs:   inputs,
 		HasAudio: len(musicFiles) > 0,
@@ -808,7 +812,7 @@ func setupAudioProcessing(inputs []string, index, startFadeOut, fadeDuration int
 		// Apply audio normalization and fades
 		// loudnorm normalizes volume to a consistent level across all tracks
 		// Then apply fade in/out using the same duration as video fades
-		config.AudioFilter = fmt.Sprintf("[%d:a]loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=in:st=0:d=%d,afade=t=out:st=%d:d=%d[musicout]; ", index, fadeDuration, startFadeOut-fadeDuration, fadeDuration)
+		config.AudioFilter = fmt.Sprintf("[%d:a]loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=in:st=0:d=%s,afade=t=out:st=%s:d=%s[musicout]; ", index, formatSeconds(fadeDuration), formatSeconds(startFadeOut-fadeDuration), formatSeconds(fadeDuration))
 
 		// Map video and audio
 		config.MapArgs = []string{"-map", "[xfout]", "-map", "[musicout]", "-shortest", "video.mp4"}
@@ -870,14 +874,14 @@ func runFFmpegCommand(args []string, hasAudio bool) error {
 }
 
 // displayVideoInfo shows the final video information
-func displayVideoInfo(finalLength int) {
+func displayVideoInfo(finalLength float64) {
 	fmt.Printf("\n=== Video generated successfully! ===\n")
 	fmt.Printf("File: video.mp4\n")
 
 	// Get detailed video information
 	if videoInfo, err := getVideoDetails("video.mp4"); err == nil {
 		fmt.Printf("Resolution: %s (4K UHD)\n", videoInfo.Resolution)
-		fmt.Printf("Duration: %d sec. (%.1fs actual)\n", finalLength, videoInfo.DurationSec)
+		fmt.Printf("Duration: %.2f sec. (%.1fs actual)\n", finalLength, videoInfo.DurationSec)
 		fmt.Printf("File Size: %.1f MB\n", videoInfo.FileSizeMB)
 		fmt.Printf("Video Bitrate: %s\n", videoInfo.VideoBitrate)
 		fmt.Printf("Audio Bitrate: %s\n", videoInfo.AudioBitrate)
@@ -885,7 +889,7 @@ func displayVideoInfo(finalLength int) {
 	} else {
 		// Fallback to basic information if ffprobe fails
 		fmt.Printf("Resolution: 4K UHD (%s)\n", resolution4K)
-		fmt.Printf("Duration: %d sec.\n", finalLength)
+		fmt.Printf("Duration: %.2f sec.\n", finalLength)
 		if fileInfo, err := os.Stat("video.mp4"); err == nil {
 			sizeMB := float64(fileInfo.Size()) / (1024 * 1024)
 			fmt.Printf("File Size: %.1f MB\n", sizeMB)
@@ -898,6 +902,8 @@ func displayVideoInfo(finalLength int) {
 // If applyKenBurns is false, the images remain static.
 // If exifOverlay is true, camera info will be displayed in the footer with specified fontSize.
 func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int, fitAudio bool) {
+	durationSec := float64(duration)
+	fadeSec := float64(fadeDuration)
 	// Find all converted .jpg files (4K resolution).
 	files, err := filepath.Glob("converted/*.jpg")
 	if err != nil {
@@ -933,9 +939,9 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 				if audioSeconds < minLength {
 					log.Fatalf("Audio duration (%.1fs) is too short for %d images.\nMinimum required: %.1fs (5s per image × %d - 1s transitions × %d)\nPlease use fewer images or add more audio files.", audioSeconds, len(files), minLength, len(files), len(files)-1)
 				}
-				oldDuration, oldFade := duration, fadeDuration
-				duration, fadeDuration, _ = adjustDurationsToMusic(duration, fadeDuration, len(files), audioSeconds)
-				fmt.Printf("Auto-fit to music (%.1fs total): duration %ds → %ds, transition %ds → %ds\n", audioSeconds, oldDuration, duration, oldFade, fadeDuration)
+				oldDuration, oldFade := durationSec, fadeSec
+				durationSec, fadeSec, _ = adjustDurationsToMusic(durationSec, fadeSec, len(files), audioSeconds)
+				fmt.Printf("Auto-fit to music (%.1fs total): duration %.2fs → %.2fs, transition %.2fs → %.2fs\n", audioSeconds, oldDuration, durationSec, oldFade, fadeSec)
 			} else {
 				fmt.Printf("fit-audio requested but could not read music duration; using provided durations.\n")
 			}
@@ -947,9 +953,9 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 				if audioSeconds < minLength {
 					log.Fatalf("Audio duration (%.1fs) is too short for %d images.\nMinimum required: %.1fs (5s per image × %d - 1s transitions × %d)\nPlease use fewer images or add more audio files.", audioSeconds, len(files), minLength, len(files), len(files)-1)
 				}
-				oldDuration, oldFade := duration, fadeDuration
-				duration, fadeDuration, _ = adjustDurationsToMusic(duration, fadeDuration, len(files), audioSeconds)
-				fmt.Printf("Auto-fit to music (%.1fs): duration %ds → %ds, transition %ds → %ds\n", audioSeconds, oldDuration, duration, oldFade, fadeDuration)
+				oldDuration, oldFade := durationSec, fadeSec
+				durationSec, fadeSec, _ = adjustDurationsToMusic(durationSec, fadeSec, len(files), audioSeconds)
+				fmt.Printf("Auto-fit to music (%.1fs): duration %.2fs → %.2fs, transition %.2fs → %.2fs\n", audioSeconds, oldDuration, durationSec, oldFade, fadeSec)
 			} else {
 				fmt.Printf("fit-audio requested but could not read music duration; using provided durations.\n")
 			}
@@ -961,22 +967,22 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	filterComplex := ""
 
 	for index, file := range files {
-		inputs = append(inputs, "-loop", "1", "-t", fmt.Sprintf("%d", duration), "-i", file)
-		videoFilter := processImageFilter(file, index, duration, fadeDuration, applyKenBurns, exifOverlay, fontSize)
+		inputs = append(inputs, "-loop", "1", "-t", formatSeconds(durationSec), "-i", file)
+		videoFilter := processImageFilter(file, index, durationSec, fadeSec, applyKenBurns, exifOverlay, fontSize)
 		filterComplex += fmt.Sprintf("%s[v%d]; ", videoFilter, index)
 	}
 
 	// Add crossfade transitions
-	filterComplex += buildCrossfadeFilters(len(files), duration, fadeDuration)
+	filterComplex += buildCrossfadeFilters(len(files), durationSec, fadeSec)
 
 	// Add final filters and get duration
-	finalFilters, finalLength := buildFinalFilters(len(files), duration, fadeDuration)
+	finalFilters, finalLength := buildFinalFilters(len(files), durationSec, fadeSec)
 	filterComplex += finalFilters
 
 	// Setup audio processing
-	totalDuration := len(files)*duration - (len(files)-1)*fadeDuration
-	startFadeOut := totalDuration - fadeDuration
-	audioConfig := setupAudioProcessing(inputs, len(files), startFadeOut, fadeDuration, musicFiles)
+	totalDuration := (float64(len(files)) * durationSec) - (float64(len(files)-1) * fadeSec)
+	startFadeOut := totalDuration - fadeSec
+	audioConfig := setupAudioProcessing(inputs, len(files), startFadeOut, fadeSec, musicFiles)
 
 	// Add audio filter to filter complex if audio is present
 	if audioConfig.HasAudio {
@@ -1002,7 +1008,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 		args = append(args, "-c:a", "aac", "-b:a", "192k")
 	}
 
-	args = append(args, "-t", fmt.Sprintf("%d", finalLength))
+	args = append(args, "-t", formatSeconds(finalLength))
 
 	// Execute FFmpeg command
 	if err := runFFmpegCommand(args, audioConfig.HasAudio); err != nil {
@@ -1021,8 +1027,11 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 // getKenBurnsEffect generates a Ken Burns effect using a fixed zoompan expression.
 // This approach is based on the method described in the Bannerbear blog.
 // Updated with softer effects: slower zoom speed, lower max zoom, and reduced movement
-func getKenBurnsEffect(duration int) string {
-	totalFrames := duration * 30
+func getKenBurnsEffect(duration float64) string {
+	totalFrames := int(math.Round(duration * 30))
+	if totalFrames < 1 {
+		totalFrames = 1
+	}
 	offset := int(float64(totalFrames) * 1.2) // reduced offset for gentler movement
 
 	// Define nine variants based on different focal positions with softer effects
