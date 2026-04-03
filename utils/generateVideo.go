@@ -709,6 +709,33 @@ func getTotalAudioDurationSeconds(musicFiles []string) (float64, error) {
 	return totalDuration, nil
 }
 
+// getAudioBitrateStr returns the audio bitrate of a file as an ffmpeg-compatible
+// string (e.g. "192k"). Returns a fallback of "192k" on any error.
+func getAudioBitrateStr(filename string) string {
+	cmd := exec.Command("ffprobe", "-v", "error", "-select_streams", "a:0",
+		"-show_entries", "stream=bit_rate", "-of", "default=noprint_wrappers=1:nokey=1", filename)
+	out, err := cmd.Output()
+	if err != nil {
+		return "192k"
+	}
+	bitrateStr := strings.TrimSpace(string(out))
+	if bitrateStr == "" || bitrateStr == "N/A" {
+		// Fall back to format-level bit_rate (common for MP3)
+		cmd2 := exec.Command("ffprobe", "-v", "error",
+			"-show_entries", "format=bit_rate", "-of", "default=noprint_wrappers=1:nokey=1", filename)
+		out2, err2 := cmd2.Output()
+		if err2 != nil {
+			return "192k"
+		}
+		bitrateStr = strings.TrimSpace(string(out2))
+	}
+	bps, err := strconv.Atoi(bitrateStr)
+	if err != nil || bps <= 0 {
+		return "192k"
+	}
+	return fmt.Sprintf("%dk", bps/1000)
+}
+
 // getAudioDurationSeconds returns audio length in seconds using ffprobe
 func getAudioDurationSeconds(filename string) (float64, error) {
 	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filename)
@@ -1003,9 +1030,10 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	args = append(args, audioConfig.MapArgs...)
 	args = append(args, getOptimalVideoSettings()...)
 
-	// Add audio encoding settings if audio is present
+	// Add audio encoding settings if audio is present, preserving input bitrate
 	if audioConfig.HasAudio {
-		args = append(args, "-c:a", "aac", "-b:a", "192k")
+		audioBitrate := getAudioBitrateStr(musicFiles[0])
+		args = append(args, "-c:a", "aac", "-b:a", audioBitrate)
 	}
 
 	args = append(args, "-t", formatSeconds(finalLength))
