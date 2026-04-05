@@ -271,16 +271,16 @@ func TestGetKenBurnsEffect_ModeSelection(t *testing.T) {
 	activeResolution = resolution4K
 	activeFPS = 30
 
-	// Dynamic 4K mode: panSpan=0.04, so low=0.480, high=0.520.
+	// Dynamic 4K mode: panSpan=0.08, so low=0.460, high=0.540.
 	activeKenBurnsMode = kenBurnsModeCinematic
 	cinematic := getKenBurnsEffect(5)
-	if strings.Contains(cinematic, "0.480") || strings.Contains(cinematic, "0.520") {
+	if strings.Contains(cinematic, "0.460") || strings.Contains(cinematic, "0.540") {
 		t.Fatalf("cinematic mode should remain center-locked, got: %s", cinematic)
 	}
 
 	activeKenBurnsMode = kenBurnsModeDynamic
 	dynamic := getKenBurnsEffect(5)
-	if !strings.Contains(dynamic, "0.480") && !strings.Contains(dynamic, "0.520") {
+	if !strings.Contains(dynamic, "0.460") && !strings.Contains(dynamic, "0.540") {
 		t.Fatalf("dynamic mode should include directional pan offsets, got: %s", dynamic)
 	}
 }
@@ -444,12 +444,12 @@ func TestKenBurnsEffect_EdgeCases(t *testing.T) {
 		activeKenBurnsMode = kenBurnsModeDynamic
 		effect := getKenBurnsEffect(5)
 
-		// Verify the softened Ken Burns zoom range for dynamic mode (1.00 → 1.03)
+		// Verify the aggressive Ken Burns zoom range for dynamic mode (1.00 -> 1.08)
 		if !strings.Contains(effect, "1.00") {
 			t.Error("Expected start zoom 1.00 in zoompan expression")
 		}
-		if !strings.Contains(effect, "1.03") {
-			t.Error("Expected end zoom 1.03 (softened dynamic mode)")
+		if !strings.Contains(effect, "1.08") {
+			t.Error("Expected end zoom 1.08 (aggressive dynamic mode)")
 		}
 	})
 

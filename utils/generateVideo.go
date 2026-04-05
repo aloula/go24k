@@ -1656,20 +1656,20 @@ func getKenBurnsEffect(duration float64) string {
 	mode := normalizeKenBurnsMode(activeKenBurnsMode)
 
 	startZoom := 1.00
-	endZoom := 1.015
-	panSpan := 0.02
+	endZoom := 1.04
+	panSpan := 0.04
 	if mode == kenBurnsModeDynamic {
-		endZoom = 1.03
-		panSpan = 0.04
+		endZoom = 1.08
+		panSpan = 0.08
 	}
 	if activeResolution == resolutionFullHD {
 		if mode == kenBurnsModeDynamic {
-			endZoom = 1.02
-			panSpan = 0.03
+			endZoom = 1.06
+			panSpan = 0.06
 		} else {
-			// Full HD needs even gentler zoom/pan to avoid visible stepping.
-			endZoom = 1.01
-			panSpan = 0.015
+			// Full HD still uses a gentler profile than 4K to avoid visible stepping.
+			endZoom = 1.03
+			panSpan = 0.03
 		}
 	}
 
