@@ -28,11 +28,46 @@ type CameraInfo struct {
 
 // ConvertImages processes each .jpg file in the working directory, applies scaling,
 // compositing on a black background, and saves the output to the "converted" folder.
-func ConvertImages() error {
+// If fullHD is true, the target canvas is Full HD (1920x1080); otherwise it is 4K UHD (3840x2160).
+func ConvertImages(fullHD bool) error {
+	// Determine canvas dimensions.
+	targetWidth, targetHeight := 3840, 2160
+	resLabel := "4K UHD"
+	if fullHD {
+		targetWidth, targetHeight = 1920, 1080
+		resLabel = "Full HD"
+	}
+
 	// Check if "converted" directory already exists.
 	if _, err := os.Stat("converted"); err == nil {
-		fmt.Println("The 'converted' folder already exists, skipping image conversion...")
-		return nil // Exit the function without an error.
+		convertedFiles, globErr := filepath.Glob(filepath.Join("converted", "*.jpg"))
+		if globErr != nil {
+			return fmt.Errorf("failed to inspect converted images: %v", globErr)
+		}
+
+		if len(convertedFiles) > 0 {
+			sampleImg, openErr := imaging.Open(convertedFiles[0], imaging.AutoOrientation(true))
+			if openErr != nil {
+				fmt.Printf("Converted images are unreadable (%v), regenerating for %s...\n", openErr, resLabel)
+				if rmErr := os.RemoveAll("converted"); rmErr != nil {
+					return fmt.Errorf("failed to remove invalid converted folder: %v", rmErr)
+				}
+			} else {
+				bounds := sampleImg.Bounds()
+				if bounds.Dx() == targetWidth && bounds.Dy() == targetHeight {
+					fmt.Println("The 'converted' folder already exists, skipping image conversion...")
+					return nil // Existing converted images already match requested output resolution.
+				}
+
+				fmt.Printf("Converted images are %dx%d but requested output is %dx%d, rebuilding...\n", bounds.Dx(), bounds.Dy(), targetWidth, targetHeight)
+				if rmErr := os.RemoveAll("converted"); rmErr != nil {
+					return fmt.Errorf("failed to remove converted folder for resolution rebuild: %v", rmErr)
+				}
+			}
+		} else {
+			fmt.Println("The 'converted' folder already exists, skipping image conversion...")
+			return nil // Preserve existing behavior for an empty converted folder.
+		}
 	}
 
 	// First, check how many .jpg files we have before creating the directory.
@@ -57,7 +92,7 @@ func ConvertImages() error {
 	}
 
 	// Display simple conversion info
-	fmt.Printf("Converting %d images to 4K UHD...\n", fileCount)
+	fmt.Printf("Converting %d images to %s...\n", fileCount, resLabel)
 
 	var totalOriginalSize, totalConvertedSize int64
 
@@ -77,10 +112,10 @@ func ConvertImages() error {
 		}
 
 		// Resize and process image.
-		imgResized := imaging.Resize(img, 0, 2160, imaging.Lanczos)
+		imgResized := imaging.Resize(img, 0, targetHeight, imaging.Lanczos)
 
 		// Create a black background.
-		uhdBlack := image.NewRGBA(image.Rect(0, 0, 3840, 2160))
+		uhdBlack := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
 		black := color.RGBA{0, 0, 0, 255}
 		draw.Draw(uhdBlack, uhdBlack.Bounds(), &image.Uniform{black}, image.Point{}, draw.Src)
 
