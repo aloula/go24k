@@ -303,7 +303,7 @@ func BenchmarkIntegrationConversion(b *testing.B) {
 
 		b.StartTimer()
 
-		err := utils.ConvertImages()
+		err := utils.ConvertImages(false)
 		if err != nil {
 			b.Errorf("Benchmark conversion failed: %v", err)
 		}

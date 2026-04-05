@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/disintegration/imaging"
 )
 
 // createTestImage creates a simple test JPEG image
@@ -71,7 +73,7 @@ func setupTestDir(t *testing.T) string {
 func TestConvertImages_NoImages(t *testing.T) {
 	tempDir := setupTestDir(t)
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err == nil {
 		t.Error("Expected error when no images are present, but got nil")
 	}
@@ -94,7 +96,7 @@ func TestConvertImages_InsufficientImages(t *testing.T) {
 	// Create only one test image
 	createTestImage(t, "single.jpg", 1920, 1080)
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err == nil {
 		t.Error("Expected error when only one image is present, but got nil")
 	}
@@ -118,7 +120,7 @@ func TestConvertImages_SingleImage(t *testing.T) {
 	createTestImage(t, "test_image1.jpg", 4032, 3024) // Common phone camera resolution
 	createTestImage(t, "test_image2.jpg", 1920, 1080) // Standard HD resolution
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Errorf("ConvertImages failed: %v", err)
 	}
@@ -158,7 +160,7 @@ func TestConvertImages_MultipleImages(t *testing.T) {
 		createTestImage(t, img.name, img.width, img.height)
 	}
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Errorf("ConvertImages failed: %v", err)
 	}
@@ -188,13 +190,52 @@ func TestConvertImages_ExistingConvertedDirectory(t *testing.T) {
 	// Create a test image
 	createTestImage(t, "test_image.jpg", 1920, 1080)
 
-	err = ConvertImages()
+	err = ConvertImages(false)
 	if err != nil {
 		t.Errorf("ConvertImages should not fail when converted directory exists: %v", err)
 	}
 
 	// Should skip conversion and return early
 	// We can't easily test the skip message without capturing output
+}
+
+func TestConvertImages_RebuildsOnResolutionMismatch(t *testing.T) {
+	_ = setupTestDir(t)
+
+	createTestImage(t, "source1.jpg", 4032, 3024)
+	createTestImage(t, "source2.jpg", 1920, 1080)
+
+	if err := os.MkdirAll("converted", os.ModePerm); err != nil {
+		t.Fatalf("Failed to create converted directory: %v", err)
+	}
+
+	// Seed converted folder with a 4K-sized output to simulate prior UHD conversion.
+	createTestImage(t, filepath.Join("converted", "old_uhd.jpg"), 3840, 2160)
+
+	if err := ConvertImages(true); err != nil {
+		t.Fatalf("ConvertImages(true) failed: %v", err)
+	}
+
+	convertedFiles, err := filepath.Glob(filepath.Join("converted", "*.jpg"))
+	if err != nil {
+		t.Fatalf("Failed to list converted files: %v", err)
+	}
+
+	if len(convertedFiles) != 2 {
+		t.Fatalf("Expected 2 converted files after rebuild, got %d", len(convertedFiles))
+	}
+
+	for _, file := range convertedFiles {
+		img, openErr := imaging.Open(file, imaging.AutoOrientation(true))
+		if openErr != nil {
+			t.Fatalf("Failed to open converted file %s: %v", file, openErr)
+		}
+
+		b := img.Bounds()
+		if b.Dx() != 1920 || b.Dy() != 1080 {
+			t.Fatalf("Expected Full HD dimensions 1920x1080, got %dx%d for %s", b.Dx(), b.Dy(), file)
+		}
+	}
 }
 
 // Helper function to check if string contains substring
@@ -224,7 +265,7 @@ func TestProcessSingleImage_Integration(t *testing.T) {
 	createTestImage(t, testImageName1, 2000, 1500)
 	createTestImage(t, testImageName2, 1920, 1080)
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Fatalf("ConvertImages failed: %v", err)
 	}
@@ -255,7 +296,7 @@ func TestConvertImages_ErrorCases(t *testing.T) {
 		_, _ = corruptedFile.WriteString("this is not a jpeg file") // Ignore error for test data
 		corruptedFile.Close()
 
-		err = ConvertImages()
+		err = ConvertImages(false)
 		if err == nil {
 			t.Error("Expected error for corrupted JPEG, but got nil")
 		}
@@ -279,7 +320,7 @@ func TestConvertImages_ErrorCases(t *testing.T) {
 		os.RemoveAll("converted")
 
 		// This should work normally since we removed the readonly dir
-		err := ConvertImages()
+		err := ConvertImages(false)
 		if err != nil {
 			t.Errorf("ConvertImages should work after removing readonly dir: %v", err)
 		}
@@ -374,7 +415,7 @@ func TestConvertImages_DifferentResolutions(t *testing.T) {
 			createTestImage(t, filename1, tc.width, tc.height)
 			createTestImage(t, filename2, 1920, 1080) // Standard resolution companion
 
-			err := ConvertImages()
+			err := ConvertImages(false)
 			if err != nil {
 				t.Errorf("Failed to convert %s image: %v", tc.name, err)
 			}
@@ -401,7 +442,7 @@ func TestConvertImages_FilePermissions(t *testing.T) {
 	createTestImage(t, "perm_test2.jpg", 1280, 720)
 
 	// Test normal conversion first
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Errorf("Normal conversion should work: %v", err)
 	}
@@ -432,7 +473,7 @@ func TestConvertImages_ProgressBarPaths(t *testing.T) {
 		createTestImage(t, filename, 1920, 1080)
 	}
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Errorf("ConvertImages failed with mixed filename lengths: %v", err)
 	}
@@ -483,7 +524,7 @@ func BenchmarkConvertImages_SingleImage(b *testing.B) {
 
 		b.StartTimer()
 
-		err := ConvertImages()
+		err := ConvertImages(false)
 		if err != nil {
 			b.Errorf("ConvertImages failed: %v", err)
 		}
@@ -528,7 +569,7 @@ func TestConvertImages_OutputFormat(t *testing.T) {
 	createTestImage(t, "format_test2.jpg", 1920, 1080)
 
 	// Run conversion
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Fatalf("ConvertImages failed: %v", err)
 	}

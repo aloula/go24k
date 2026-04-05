@@ -25,6 +25,8 @@ coverage.html
 # Arquivos temporários
 *.tmp
 *.temp
+audio_concat.txt
+filter_complex.txt
 
 # Logs
 *.log

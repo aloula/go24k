@@ -3,9 +3,11 @@ package utils
 import (
 	"os"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestIsWSL tests the WSL detection function
@@ -211,9 +213,13 @@ func TestGetKenBurnsEffect(t *testing.T) {
 				t.Error("Effect should contain 'zoompan' filter")
 			}
 
-			// Should contain resolution
-			if !strings.Contains(effect, "3840x2160") {
-				t.Error("Effect should contain 4K resolution")
+			if !strings.Contains(effect, "cos(PI*on/") {
+				t.Error("Effect should contain eased motion expression")
+			}
+
+			// Should contain supersampled resolution (2× active) used to prevent zoompan jitter
+			if !strings.Contains(effect, "7680x4320") {
+				t.Error("Effect should contain supersampled 8K resolution to prevent jitter")
 			}
 
 			// Should contain duration
@@ -225,6 +231,57 @@ func TestGetKenBurnsEffect(t *testing.T) {
 
 			t.Logf("Duration %.0f -> Effect: %s", tc.duration, effect)
 		})
+	}
+}
+
+func TestNormalizeKenBurnsMode(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "default empty", input: "", expected: kenBurnsModeDynamic},
+		{name: "cinematic", input: "cinematic", expected: kenBurnsModeCinematic},
+		{name: "cinematic mixed case", input: "CiNeMaTiC", expected: kenBurnsModeCinematic},
+		{name: "dynamic", input: "dynamic", expected: kenBurnsModeDynamic},
+		{name: "dynamic with spaces", input: "  dynamic  ", expected: kenBurnsModeDynamic},
+		{name: "invalid", input: "fast", expected: kenBurnsModeDynamic},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := normalizeKenBurnsMode(tc.input)
+			if got != tc.expected {
+				t.Fatalf("normalizeKenBurnsMode(%q) = %q, want %q", tc.input, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestGetKenBurnsEffect_ModeSelection(t *testing.T) {
+	oldMode := activeKenBurnsMode
+	oldResolution := activeResolution
+	oldFPS := activeFPS
+	defer func() {
+		activeKenBurnsMode = oldMode
+		activeResolution = oldResolution
+		activeFPS = oldFPS
+	}()
+
+	activeResolution = resolution4K
+	activeFPS = 30
+
+	// Dynamic 4K mode: panSpan=0.04, so low=0.480, high=0.520.
+	activeKenBurnsMode = kenBurnsModeCinematic
+	cinematic := getKenBurnsEffect(5)
+	if strings.Contains(cinematic, "0.480") || strings.Contains(cinematic, "0.520") {
+		t.Fatalf("cinematic mode should remain center-locked, got: %s", cinematic)
+	}
+
+	activeKenBurnsMode = kenBurnsModeDynamic
+	dynamic := getKenBurnsEffect(5)
+	if !strings.Contains(dynamic, "0.480") && !strings.Contains(dynamic, "0.520") {
+		t.Fatalf("dynamic mode should include directional pan offsets, got: %s", dynamic)
 	}
 }
 
@@ -384,14 +441,15 @@ func TestKenBurnsEffect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("Check_zoom_parameters", func(t *testing.T) {
+		activeKenBurnsMode = kenBurnsModeDynamic
 		effect := getKenBurnsEffect(5)
 
-		// Verify the softened Ken Burns parameters
-		if !strings.Contains(effect, "0.0005") {
-			t.Error("Expected zoom speed 0.0005 (softened)")
+		// Verify the softened Ken Burns zoom range for dynamic mode (1.00 → 1.03)
+		if !strings.Contains(effect, "1.00") {
+			t.Error("Expected start zoom 1.00 in zoompan expression")
 		}
-		if !strings.Contains(effect, "1.3") {
-			t.Error("Expected max zoom 1.3 (softened)")
+		if !strings.Contains(effect, "1.03") {
+			t.Error("Expected end zoom 1.03 (softened dynamic mode)")
 		}
 	})
 
@@ -506,6 +564,288 @@ func TestVideoInfo_DefaultValues(t *testing.T) {
 	}
 	if info.Resolution != "" {
 		t.Errorf("Expected Resolution to be empty, got %s", info.Resolution)
+	}
+}
+
+func TestFindVideoFiles_ExcludesOutputVideo(t *testing.T) {
+	tempDir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd failed: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWd)
+	}()
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+
+	for _, name := range []string{"clip.mp4", "scene.mov", outputVideo} {
+		if err := os.WriteFile(name, []byte("test"), 0644); err != nil {
+			t.Fatalf("WriteFile(%s) failed: %v", name, err)
+		}
+	}
+
+	files, err := findVideoFiles()
+	if err != nil {
+		t.Fatalf("findVideoFiles returned error: %v", err)
+	}
+
+	joined := strings.Join(files, ",")
+	if strings.Contains(joined, outputVideo) {
+		t.Fatalf("findVideoFiles should exclude %s, got %v", outputVideo, files)
+	}
+	if !strings.Contains(joined, "clip.mp4") || !strings.Contains(joined, "scene.mov") {
+		t.Fatalf("findVideoFiles missed expected inputs, got %v", files)
+	}
+}
+
+func TestExtractImageTimestampFromConvertedName(t *testing.T) {
+	ts, ok := extractImageTimestampFromConvertedName("converted/20240223_153741_uhd.jpg")
+	if !ok {
+		t.Fatalf("expected timestamp to be extracted")
+	}
+
+	if ts.Format("20060102_150405") != "20240223_153741" {
+		t.Fatalf("unexpected parsed timestamp: %s", ts.Format("20060102_150405"))
+	}
+
+	_, ok = extractImageTimestampFromConvertedName("converted/not_a_timestamp_uhd.jpg")
+	if ok {
+		t.Fatalf("expected no timestamp for invalid converted filename")
+	}
+}
+
+func TestParseVideoCreationTime(t *testing.T) {
+	testCases := []string{
+		"2024-02-23T15:37:41Z",
+		"2024-02-23T15:37:41.123Z",
+		"2024-02-23 15:37:41",
+	}
+
+	for _, tc := range testCases {
+		if _, err := parseVideoCreationTime(tc); err != nil {
+			t.Fatalf("expected to parse %q, got error: %v", tc, err)
+		}
+	}
+}
+
+func TestMediaSorting_UsesFilenameWhenTimestampMissing(t *testing.T) {
+	older := time.Date(2024, 2, 20, 10, 0, 0, 0, time.UTC)
+	newer := time.Date(2024, 2, 21, 10, 0, 0, 0, time.UTC)
+
+	media := []MediaInput{
+		{Path: "a_no_ts.jpg", SortName: "a_no_ts.jpg", HasCapturedAt: false},
+		{Path: "b_new.mp4", SortName: "b_new.mp4", HasCapturedAt: true, CapturedAt: newer},
+		{Path: "c_old.jpg", SortName: "c_old.jpg", HasCapturedAt: true, CapturedAt: older},
+	}
+
+	sort.Slice(media, func(i, j int) bool {
+		if media[i].HasCapturedAt && media[j].HasCapturedAt {
+			if !media[i].CapturedAt.Equal(media[j].CapturedAt) {
+				return media[i].CapturedAt.Before(media[j].CapturedAt)
+			}
+		}
+		left := mediaSortName(media[i].SortName)
+		right := mediaSortName(media[j].SortName)
+		return left < right
+	})
+
+	if media[0].Path != "a_no_ts.jpg" || media[1].Path != "c_old.jpg" || media[2].Path != "b_new.mp4" {
+		t.Fatalf("unexpected sort order: %#v", media)
+	}
+}
+
+func TestExtractCaptureTimeFromFilename(t *testing.T) {
+	testCases := []struct {
+		name     string
+		filename string
+		expected string
+		ok       bool
+	}{
+		{name: "converted style", filename: "converted/20240223_153741_uhd.jpg", expected: "20240223_153741", ok: true},
+		{name: "iso style", filename: "VID_2024-02-23_15-37-41.mp4", expected: "20240223_153741", ok: true},
+		{name: "compact style", filename: "IMG20240223153741.jpg", expected: "20240223_153741", ok: true},
+		{name: "invalid", filename: "holiday-final-cut.mp4", ok: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts, ok := extractCaptureTimeFromFilename(tc.filename)
+			if ok != tc.ok {
+				t.Fatalf("extractCaptureTimeFromFilename(%q) ok = %v, want %v", tc.filename, ok, tc.ok)
+			}
+			if tc.ok {
+				if got := ts.Format("20060102_150405"); got != tc.expected {
+					t.Fatalf("extractCaptureTimeFromFilename(%q) = %s, want %s", tc.filename, got, tc.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestMediaSorting_FilenameTimestampWhenMetadataMissing(t *testing.T) {
+	videoTS, ok := extractCaptureTimeFromFilename("VID_2024-02-20_09-00-00.mp4")
+	if !ok {
+		t.Fatal("expected video filename timestamp to parse")
+	}
+
+	imageTS, ok := extractCaptureTimeFromFilename("IMG_2024-02-20_10-00-00_uhd.jpg")
+	if !ok {
+		t.Fatal("expected image filename timestamp to parse")
+	}
+
+	media := []MediaInput{
+		{Path: "IMG_2024-02-20_10-00-00_uhd.jpg", SortName: "img_0010.jpg", HasCapturedAt: true, CapturedAt: imageTS},
+		{Path: "VID_2024-02-20_09-00-00.mp4", SortName: "vid_0009.mp4", HasCapturedAt: true, CapturedAt: videoTS},
+	}
+
+	sort.Slice(media, func(i, j int) bool {
+		if media[i].HasCapturedAt && media[j].HasCapturedAt {
+			if !media[i].CapturedAt.Equal(media[j].CapturedAt) {
+				return media[i].CapturedAt.Before(media[j].CapturedAt)
+			}
+		}
+		return mediaSortName(media[i].SortName) < mediaSortName(media[j].SortName)
+	})
+
+	if media[0].Path != "VID_2024-02-20_09-00-00.mp4" {
+		t.Fatalf("expected video to come first by filename-derived timestamp, got %s", media[0].Path)
+	}
+}
+
+func TestMediaSorting_OrderByFilenameMode(t *testing.T) {
+	older := time.Date(2024, 2, 20, 9, 0, 0, 0, time.UTC)
+	newer := time.Date(2024, 2, 21, 9, 0, 0, 0, time.UTC)
+
+	media := []MediaInput{
+		{Path: "z-last.jpg", SortName: "z-last.jpg", HasCapturedAt: true, CapturedAt: older},
+		{Path: "a-first.jpg", SortName: "a-first.jpg", HasCapturedAt: true, CapturedAt: newer},
+	}
+
+	orderByFilename := true
+	sort.Slice(media, func(i, j int) bool {
+		left := mediaSortName(media[i].SortName)
+		right := mediaSortName(media[j].SortName)
+
+		if orderByFilename {
+			return left < right
+		}
+
+		if media[i].HasCapturedAt && media[j].HasCapturedAt {
+			if !media[i].CapturedAt.Equal(media[j].CapturedAt) {
+				return media[i].CapturedAt.Before(media[j].CapturedAt)
+			}
+		}
+		return left < right
+	})
+
+	if media[0].Path != "a-first.jpg" {
+		t.Fatalf("expected filename ordering, got %s first", media[0].Path)
+	}
+}
+
+func TestResolveImageSortName_UsesOriginalFilename(t *testing.T) {
+	tempDir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd failed: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWd)
+	}()
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+
+	if err := os.MkdirAll("converted", 0755); err != nil {
+		t.Fatalf("MkdirAll failed: %v", err)
+	}
+
+	if err := os.WriteFile("img_020.jpg", []byte("fake-jpg"), 0644); err != nil {
+		t.Fatalf("WriteFile img_020.jpg failed: %v", err)
+	}
+	if err := os.WriteFile("converted/img_020_uhd.jpg", []byte("fake-jpg"), 0644); err != nil {
+		t.Fatalf("WriteFile converted image failed: %v", err)
+	}
+
+	got := resolveImageSortName("converted/img_020_uhd.jpg")
+	if got != "img_020.jpg" {
+		t.Fatalf("resolveImageSortName returned %q, want %q", got, "img_020.jpg")
+	}
+}
+
+func TestBuildTimelineOffsets(t *testing.T) {
+	mediaInputs := []MediaInput{
+		{Path: "converted/a.jpg", IsImage: true, SegmentDuration: 8},
+		{Path: "converted/b.jpg", IsImage: true, SegmentDuration: 8},
+		{Path: "clip.mp4", IsImage: false, HasAudio: true, SegmentDuration: 12.5},
+	}
+
+	offsets := buildTimelineOffsets(mediaInputs, 2)
+	if len(offsets) != 3 {
+		t.Fatalf("expected 3 offsets, got %d", len(offsets))
+	}
+
+	if offsets[0] != 0 {
+		t.Fatalf("expected first offset 0, got %f", offsets[0])
+	}
+	if offsets[1] != 6 {
+		t.Fatalf("expected second offset 6, got %f", offsets[1])
+	}
+	if offsets[2] != 12 {
+		t.Fatalf("expected third offset 12, got %f", offsets[2])
+	}
+}
+
+func TestSetupAudioProcessing_MixesMusicAndClipAudio(t *testing.T) {
+	mediaInputs := []MediaInput{
+		{Path: "converted/a.jpg", IsImage: true, SegmentDuration: 8},
+		{Path: "clip.mp4", IsImage: false, HasAudio: true, SegmentDuration: 12},
+	}
+
+	config := setupAudioProcessing([]string{"-loop", "1", "-t", "8", "-i", "converted/a.jpg", "-i", "clip.mp4"}, mediaInputs, 18, 2, []string{"soundtrack.mp3"}, true)
+
+	if !config.HasAudio {
+		t.Fatal("expected mixed audio output to be enabled")
+	}
+	if config.AudioBitrateSource != "soundtrack.mp3" {
+		t.Fatalf("expected audio bitrate source soundtrack.mp3, got %s", config.AudioBitrateSource)
+	}
+	if !strings.Contains(config.AudioFilter, "volume=") {
+		t.Fatalf("expected volume mute expression in audio filter, got %s", config.AudioFilter)
+	}
+	if !strings.Contains(config.AudioFilter, "musicmuted") {
+		t.Fatalf("expected muted music label in audio filter, got %s", config.AudioFilter)
+	}
+	if !strings.Contains(config.AudioFilter, "clipaudio0") {
+		t.Fatalf("expected delayed clip audio label in audio filter, got %s", config.AudioFilter)
+	}
+	if len(config.MapArgs) < 4 || config.MapArgs[3] != "[mixedaudio]" {
+		t.Fatalf("expected mixed audio mapping, got %v", config.MapArgs)
+	}
+}
+
+func TestSetupAudioProcessing_UsesClipAudioWithoutMusic(t *testing.T) {
+	mediaInputs := []MediaInput{
+		{Path: "clip.mp4", IsImage: false, HasAudio: true, SegmentDuration: 10},
+	}
+
+	config := setupAudioProcessing([]string{"-i", "clip.mp4"}, mediaInputs, 10, 2, nil, true)
+
+	if !config.HasAudio {
+		t.Fatal("expected clip audio to be preserved when requested")
+	}
+	if config.AudioBitrateSource != "clip.mp4" {
+		t.Fatalf("expected clip.mp4 bitrate source, got %s", config.AudioBitrateSource)
+	}
+	if strings.Contains(config.AudioFilter, "sidechaincompress") {
+		t.Fatalf("did not expect sidechaincompress without music, got %s", config.AudioFilter)
+	}
+	if len(config.MapArgs) < 4 || config.MapArgs[3] != "[clipaudio0]" {
+		t.Fatalf("expected clip audio mapping, got %v", config.MapArgs)
 	}
 }
 

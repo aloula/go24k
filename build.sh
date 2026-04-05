@@ -1,15 +1,16 @@
 #!/bin/bash
 
 # Build script for Go24K with version information
-VERSION=$(grep 'Version.*=' version.go | sed 's/.*"\(.*\)".*/\1/')
+VERSION_FILE="utils/version.go"
+VERSION=$(grep 'Version.*=' "$VERSION_FILE" | sed 's/.*"\(.*\)".*/\1/')
 BUILD_DATE=$(date +%Y-%m-%d)
 BUILD_TIME=$(date +%H:%M:%S)
 
 echo "🏗️  Building Go24K v$VERSION ($BUILD_DATE $BUILD_TIME)"
 echo "================================================"
 
-# Update build date in version.go
-sed -i.bak "s/BuildDate.*=.*/BuildDate   = \"$BUILD_DATE\"/" version.go
+# Update build date in version file
+sed -i.bak "s/BuildDate.*=.*/BuildDate   = \"$BUILD_DATE\"/" "$VERSION_FILE"
 
 # Create the builds directory if it doesn't exist
 mkdir -p builds/{linux/{amd64,arm64},windows/{amd64,arm64},macos/{intel,arm}}
@@ -82,7 +83,7 @@ echo "📁 Output directory: builds/"
 echo "🏷️  Version: v$VERSION"
 echo "📅 Build date: $BUILD_DATE $BUILD_TIME"
 
-# Restore backup of version.go
-if [ -f version.go.bak ]; then
-    mv version.go.bak version.go
+# Restore backup of version file
+if [ -f "$VERSION_FILE.bak" ]; then
+    mv "$VERSION_FILE.bak" "$VERSION_FILE"
 fi
