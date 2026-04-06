@@ -34,6 +34,24 @@ Coloque pelo menos duas imagens JPG no diretório atual. Se quiser, adicione tam
 ./go24k
 ```
 
+## Interface gráfica (Fyne)
+
+Também é possível usar uma interface desktop para escolher pasta e opções sem precisar decorar flags.
+
+```bash
+go build -tags fyne -o go24k
+./go24k -gui
+```
+
+Observação: builds padrão (sem `-tags fyne`) continuam funcionando para CLI e cross-compilation, mas não incluem a GUI.
+
+A GUI permite:
+
+- Selecionar a pasta com imagens, músicas e vídeos.
+- Configurar duração, transição, FPS e modo do Ken Burns.
+- Ativar opções como fit-audio, include-videos, keep-video-audio, fullhd e exif-overlay.
+- Executar a geração e acompanhar log/progresso em tempo real.
+
 Saída padrão:
 
 - converted/: imagens convertidas
@@ -85,6 +103,9 @@ Saída padrão:
 
 # Diagnóstico de hardware
 ./go24k --debug
+
+# Abrir interface gráfica
+./go24k -gui
 ```
 
 ## EXIF overlay
@@ -111,6 +132,8 @@ Builds para múltiplas plataformas:
 ./build.sh
 ```
 
+O script gera binários CLI para Linux/Windows/macOS e também tenta gerar binários GUI em `builds/gui/<goos>/<goarch>/go24k-gui` (ou `.exe` no Windows) quando os toolchains de cross-compilation da plataforma estão disponíveis.
+
 Testes e checks mais usados:
 
 ```bash
@@ -132,6 +155,7 @@ make lint
 - Sem imagens suficientes: são necessárias pelo menos duas imagens ou mídias na timeline.
 - Sem aceleração por hardware: use --debug e verifique drivers e suporte do FFmpeg.
 - Sem áudio no resultado: confirme a presença de MP3 ou use -keep-video-audio.
+- GUI não abre: compile com `-tags fyne` e rode `./go24k -gui`.
 
 ## Licença
 
