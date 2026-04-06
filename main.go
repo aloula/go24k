@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"go24k/utils"
@@ -27,6 +30,7 @@ func main() {
 	version := flag.Bool("version", false, "Show version information")
 	versionShort := flag.Bool("v", false, "Show version information (short)")
 	help := flag.Bool("help", false, "Show this help message")
+	gui := flag.Bool("gui", false, "Launch desktop GUI")
 
 	// Custom usage function
 	flag.Usage = func() {
@@ -49,6 +53,7 @@ func main() {
 		fmt.Printf("  go24k -include-videos -keep-video-audio  # Keep clip audio and blend it with MP3 audio\n")
 		fmt.Printf("  go24k -order-by-filename                 # Ignore metadata and sort timeline by filename\n")
 		fmt.Printf("  go24k -fullhd                              # Generate Full HD (1920x1080) video\n")
+		fmt.Printf("  go24k -gui                                 # Open desktop GUI\n")
 		fmt.Printf("  go24k -convert-only                        # Only convert images to 4K\n")
 		fmt.Printf("  go24k -debug                               # Show hardware detection info\n")
 		fmt.Printf("\nFor more information: https://github.com/aloula/go24k\n")
@@ -76,6 +81,11 @@ func main() {
 		} else {
 			fmt.Println(utils.GetVersionInfo())
 		}
+		return
+	}
+
+	if *gui || shouldAutoLaunchGUI() {
+		launchGUI()
 		return
 	}
 
@@ -117,4 +127,22 @@ func main() {
 		elapsedTime := time.Since(startTime).Seconds()
 		fmt.Printf("Total time: %.1f sec.\n", elapsedTime)
 	}
+}
+
+func shouldAutoLaunchGUI() bool {
+	if os.Getenv("GO24K_INTERNAL_CLI") == "1" {
+		return false
+	}
+
+	if len(os.Args) > 1 {
+		return false
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return false
+	}
+
+	baseName := strings.ToLower(filepath.Base(exePath))
+	return strings.Contains(baseName, "go24k-gui")
 }

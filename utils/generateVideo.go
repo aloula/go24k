@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -58,7 +57,7 @@ func getFileSize(filename string) float64 {
 
 // runFFProbe executes ffprobe and returns the JSON output
 func runFFProbe(filename string) (string, error) {
-	cmd := exec.Command("ffprobe",
+	cmd := newExecCommand("ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
 		"-show_format",
@@ -239,7 +238,7 @@ func isWSL() bool {
 // Hardware encoder detection functions
 func checkNVENCAvailable() bool {
 	// First check if encoder is listed
-	cmd := exec.Command("ffmpeg", "-encoders")
+	cmd := newExecCommand("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
@@ -250,7 +249,7 @@ func checkNVENCAvailable() bool {
 
 	// Test if NVENC actually works (avoid false positives in WSL/ARM systems)
 	// Some systems report NVENC support but can't actually use it
-	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+	testCmd := newExecCommand("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
 		"-c:v", "h264_nvenc", "-f", "null", "-")
 	err = testCmd.Run()
 	return err == nil
@@ -258,7 +257,7 @@ func checkNVENCAvailable() bool {
 
 func checkQSVAvailable() bool {
 	// First check if encoder is listed
-	cmd := exec.Command("ffmpeg", "-encoders")
+	cmd := newExecCommand("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
@@ -268,7 +267,7 @@ func checkQSVAvailable() bool {
 	}
 
 	// Test if QSV actually works
-	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+	testCmd := newExecCommand("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
 		"-c:v", "h264_qsv", "-f", "null", "-")
 	err = testCmd.Run()
 	return err == nil
@@ -276,7 +275,7 @@ func checkQSVAvailable() bool {
 
 func checkAMFAvailable() bool {
 	// First check if encoder is listed
-	cmd := exec.Command("ffmpeg", "-encoders")
+	cmd := newExecCommand("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
@@ -286,7 +285,7 @@ func checkAMFAvailable() bool {
 	}
 
 	// Test if AMF actually works
-	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+	testCmd := newExecCommand("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
 		"-c:v", "h264_amf", "-f", "null", "-")
 	err = testCmd.Run()
 	return err == nil
@@ -294,7 +293,7 @@ func checkAMFAvailable() bool {
 
 func checkMediaFoundationAvailable() bool {
 	// First check if encoder is listed
-	cmd := exec.Command("ffmpeg", "-encoders")
+	cmd := newExecCommand("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
@@ -304,7 +303,7 @@ func checkMediaFoundationAvailable() bool {
 	}
 
 	// Test if Media Foundation actually works
-	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+	testCmd := newExecCommand("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
 		"-c:v", "h264_mf", "-f", "null", "-")
 	err = testCmd.Run()
 	return err == nil
@@ -312,7 +311,7 @@ func checkMediaFoundationAvailable() bool {
 
 func checkVAAPIAvailable() bool {
 	// First check if encoder is listed
-	cmd := exec.Command("ffmpeg", "-encoders")
+	cmd := newExecCommand("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
@@ -322,14 +321,14 @@ func checkVAAPIAvailable() bool {
 	}
 
 	// Test if VAAPI actually works
-	testCmd := exec.Command("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
+	testCmd := newExecCommand("ffmpeg", "-f", "lavfi", "-i", "testsrc=duration=0.1:size=320x240:rate=1",
 		"-c:v", "h264_vaapi", "-f", "null", "-")
 	err = testCmd.Run()
 	return err == nil
 }
 
 func checkVideoToolboxAvailable() bool {
-	cmd := exec.Command("ffmpeg", "-encoders")
+	cmd := newExecCommand("ffmpeg", "-encoders")
 	output, err := cmd.Output()
 	if err != nil {
 		return false
@@ -927,7 +926,7 @@ func getTotalAudioDurationSeconds(musicFiles []string) (float64, error) {
 // getAudioBitrateStr returns the audio bitrate of a file as an ffmpeg-compatible
 // string (e.g. "192k"). Returns a fallback of "192k" on any error.
 func getAudioBitrateStr(filename string) string {
-	cmd := exec.Command("ffprobe", "-v", "error", "-select_streams", "a:0",
+	cmd := newExecCommand("ffprobe", "-v", "error", "-select_streams", "a:0",
 		"-show_entries", "stream=bit_rate", "-of", "default=noprint_wrappers=1:nokey=1", filename)
 	out, err := cmd.Output()
 	if err != nil {
@@ -936,7 +935,7 @@ func getAudioBitrateStr(filename string) string {
 	bitrateStr := strings.TrimSpace(string(out))
 	if bitrateStr == "" || bitrateStr == "N/A" {
 		// Fall back to format-level bit_rate (common for MP3)
-		cmd2 := exec.Command("ffprobe", "-v", "error",
+		cmd2 := newExecCommand("ffprobe", "-v", "error",
 			"-show_entries", "format=bit_rate", "-of", "default=noprint_wrappers=1:nokey=1", filename)
 		out2, err2 := cmd2.Output()
 		if err2 != nil {
@@ -953,7 +952,7 @@ func getAudioBitrateStr(filename string) string {
 
 // getAudioDurationSeconds returns audio length in seconds using ffprobe
 func getMediaDurationSeconds(filename string) (float64, error) {
-	cmd := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filename)
+	cmd := newExecCommand("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", filename)
 	output, err := cmd.Output()
 	if err != nil {
 		return 0, fmt.Errorf("ffprobe duration failed: %v", err)
@@ -975,7 +974,7 @@ func getAudioDurationSeconds(filename string) (float64, error) {
 }
 
 func hasAudioStream(filename string) (bool, error) {
-	cmd := exec.Command("ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", filename)
+	cmd := newExecCommand("ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0", filename)
 	output, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("ffprobe audio stream failed: %v", err)
@@ -1081,7 +1080,7 @@ func parseVideoCreationTime(value string) (time.Time, error) {
 }
 
 func getVideoCaptureTime(filename string) (time.Time, bool) {
-	cmd := exec.Command("ffprobe", "-v", "error",
+	cmd := newExecCommand("ffprobe", "-v", "error",
 		"-show_entries", "format_tags=creation_time:stream_tags=creation_time",
 		"-of", "default=noprint_wrappers=1:nokey=1", filename)
 	output, err := cmd.Output()
@@ -1359,7 +1358,7 @@ func processVideoFilter(index int, fadeDuration float64) string {
 
 // runFFmpegCommand executes the ffmpeg command with progress indication
 func runFFmpegCommand(args []string, hasAudio bool) error {
-	cmd := exec.Command("ffmpeg", args...)
+	cmd := newExecCommand("ffmpeg", args...)
 	var stderr bytes.Buffer
 
 	// Keep stdout quiet but retain stderr for actionable failures.
@@ -1375,39 +1374,47 @@ func runFFmpegCommand(args []string, hasAudio bool) error {
 		return fmt.Errorf("ffmpeg start failed: %v", err)
 	}
 
-	done := make(chan struct{})
-	go func() {
-		spinnerChars := []string{"|", "/", "-", "\\"}
-		i := 0
-		var message string
-		if hasAudio {
-			message = "Generating video with audio"
-		} else {
-			message = "Generating video (no audio)"
-		}
-
-		for {
-			select {
-			case <-done:
-				fmt.Print("\r")
-				return
-			default:
-				fmt.Printf("\r%s %s...", spinnerChars[i%len(spinnerChars)], message)
-				i++
-				time.Sleep(200 * time.Millisecond)
+	showSpinner := os.Getenv("GO24K_INTERNAL_CLI") != "1"
+	var done chan struct{}
+	if showSpinner {
+		done = make(chan struct{})
+		go func() {
+			spinnerChars := []string{"|", "/", "-", "\\"}
+			i := 0
+			var message string
+			if hasAudio {
+				message = "Generating video with audio"
+			} else {
+				message = "Generating video (no audio)"
 			}
-		}
-	}()
+
+			for {
+				select {
+				case <-done:
+					fmt.Print("\r")
+					return
+				default:
+					fmt.Printf("\r%s %s...", spinnerChars[i%len(spinnerChars)], message)
+					i++
+					time.Sleep(200 * time.Millisecond)
+				}
+			}
+		}()
+	}
 
 	if err := cmd.Wait(); err != nil {
-		close(done)
+		if showSpinner {
+			close(done)
+		}
 		stderrOutput := strings.TrimSpace(stderr.String())
 		if stderrOutput != "" {
 			return fmt.Errorf("ffmpeg command failed: %v\n%s", err, stderrOutput)
 		}
 		return fmt.Errorf("ffmpeg command failed: %v", err)
 	}
-	close(done)
+	if showSpinner {
+		close(done)
+	}
 	return nil
 }
 
