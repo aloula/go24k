@@ -3,8 +3,8 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"image/color"
 	"io"
 	"os"
 	"os/exec"
@@ -17,7 +17,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
@@ -29,6 +28,12 @@ var guiIconCandidates = []string{
 	"app-icon.png",
 	"assets/app-icon.png",
 }
+
+const (
+	guiMotionLabelLow    = "Pan + zoom (low)"
+	guiMotionLabelMedium = "Pan + zoom (medium)"
+	guiMotionLabelHigh   = "Pan + zoom (high)"
+)
 
 type guiOptions struct {
 	inputFolder     string
@@ -57,6 +62,8 @@ type disableable interface {
 	Disable()
 	Enable()
 }
+
+var errGUIProcessStopped = errors.New("generation stopped by user")
 
 func (b *guiLogBuffer) Append(chunk string) string {
 	for i := 0; i < len(chunk); i++ {
@@ -89,9 +96,33 @@ func (b *guiLogBuffer) Flush() string {
 	return b.stable.String()
 }
 
+func motionStyleOptions() []string {
+	return []string{guiMotionLabelLow, guiMotionLabelMedium, guiMotionLabelHigh}
+}
+
+func motionStyleToKenBurnsMode(label string) string {
+	switch label {
+	case guiMotionLabelLow:
+		return "low"
+	case guiMotionLabelMedium:
+		return "medium"
+	case guiMotionLabelHigh:
+		return "high"
+	default:
+		return "high"
+	}
+}
+
+func formatElapsedDuration(elapsed time.Duration) string {
+	totalSeconds := int(elapsed.Seconds())
+	minutes := totalSeconds / 60
+	seconds := totalSeconds % 60
+	return fmt.Sprintf("Elapsed: %02d:%02d", minutes, seconds)
+}
+
 func launchGUI() {
 	a := app.NewWithID("com.aloula.go24k")
-	w := a.NewWindow("Go24K - Video Generator")
+	w := a.NewWindow(fmt.Sprintf("%s - Video Generator", utils.GetVersionInfo()))
 	if icon := loadGUIIcon(); icon != nil {
 		a.SetIcon(icon)
 		w.SetIcon(icon)
@@ -145,8 +176,15 @@ func launchGUI() {
 	fpsSelect := widget.NewSelect([]string{"auto", "30", "60"}, nil)
 	fpsSelect.SetSelected("auto")
 
-	kenBurnsSelect := widget.NewSelect([]string{"dynamic", "cinematic"}, nil)
-	kenBurnsSelect.SetSelected("dynamic")
+	kenBurnsSelect := widget.NewSelect(motionStyleOptions(), nil)
+	kenBurnsSelect.SetSelected(guiMotionLabelHigh)
+	staticCheck.OnChanged = func(checked bool) {
+		if checked {
+			kenBurnsSelect.Disable()
+			return
+		}
+		kenBurnsSelect.Enable()
+	}
 
 	logOutput := widget.NewMultiLineEntry()
 	logOutput.Wrapping = fyne.TextWrapWord
@@ -155,23 +193,17 @@ func launchGUI() {
 	logBinding := binding.NewString()
 	_ = logBinding.Set("")
 	logOutput.Bind(logBinding)
-	generationStatus := widget.NewLabel("")
-	generationStatus.Hide()
-	generationProgress := widget.NewProgressBarInfinite()
-	progressPlaceholder := canvas.NewRectangle(color.Transparent)
-	progressPlaceholder.SetMinSize(fyne.NewSize(0, generationProgress.MinSize().Height))
-	progressRow := container.NewMax(progressPlaceholder, generationProgress)
-	generationProgress.Hide()
-	logHeader := container.NewVBox(
-		container.NewHBox(
-			layout.NewSpacer(),
-			generationStatus,
-		),
-		progressRow,
-	)
+	elapsedBinding := binding.NewString()
+	_ = elapsedBinding.Set("Elapsed: 00:00")
+	elapsedLabel := widget.NewLabelWithData(elapsedBinding)
+	elapsedLabel.TextStyle = fyne.TextStyle{Monospace: true}
 
 	runButton := widget.NewButton("Generate Video", nil)
 	runButton.Importance = widget.HighImportance
+	stopButton := widget.NewButton("Stop", nil)
+	stopButton.Importance = widget.DangerImportance
+	stopButton.Disable()
+	stopButton.Hide()
 
 	runButton.OnTapped = func() {
 		durationValue, err := strconv.Atoi(strings.TrimSpace(durationEntry.Text))
@@ -216,7 +248,7 @@ func launchGUI() {
 			keepVideoAudio:  includeVideosCheck.Checked && keepVideoAudioCheck.Checked,
 			orderByFilename: orderByFilenameCheck.Checked,
 			fullHD:          fullHDCheck.Checked,
-			kenBurnsMode:    kenBurnsSelect.Selected,
+			kenBurnsMode:    motionStyleToKenBurnsMode(kenBurnsSelect.Selected),
 			exifOverlay:     exifOverlayCheck.Checked,
 			overlayFontSize: fontSizeValue,
 		}
@@ -239,25 +271,34 @@ func launchGUI() {
 			kenBurnsSelect,
 			runButton,
 		)
-		generationStatus.SetText("Generating video... 00:00")
-		generationStatus.Show()
-		generationProgress.Show()
-		generationProgress.Start()
+		stopRequested := make(chan struct{})
+		stopRequestIssued := false
+		stopButton.OnTapped = func() {
+			if stopRequestIssued {
+				return
+			}
+			stopRequestIssued = true
+			stopButton.Disable()
+			close(stopRequested)
+		}
+		stopButton.Enable()
+		stopButton.Show()
+		_ = elapsedBinding.Set("Elapsed: 00:00")
 		_ = logBinding.Set("")
 		scrollEntryToEnd(logOutput, "")
 
 		go func() {
 			startedAt := time.Now()
-			stopIndicator := make(chan struct{})
+			stopElapsedUpdates := make(chan struct{})
 			go func() {
 				ticker := time.NewTicker(time.Second)
 				defer ticker.Stop()
 				for {
 					select {
-					case <-stopIndicator:
+					case <-stopElapsedUpdates:
 						return
 					case <-ticker.C:
-						generationStatus.SetText("Generating video... " + formatElapsedTime(time.Since(startedAt)))
+						_ = elapsedBinding.Set(formatElapsedDuration(time.Since(startedAt)))
 					}
 				}
 			}()
@@ -308,17 +349,16 @@ func launchGUI() {
 				logChunks <- chunk
 			}
 
-			runErr := runGeneratorFromGUIStreaming(opts, appendLog)
+			runErr := runGeneratorFromGUIStreaming(opts, appendLog, stopRequested)
+			close(stopElapsedUpdates)
+			_ = elapsedBinding.Set(formatElapsedDuration(time.Since(startedAt)))
 			close(logChunks)
 			finalLog := <-logDone
-			close(stopIndicator)
 			_ = logBinding.Set(finalLog)
 			scrollEntryToEnd(logOutput, finalLog)
 
-			generationProgress.Stop()
-			generationProgress.Hide()
-			generationStatus.SetText("")
-			generationStatus.Hide()
+			stopButton.Disable()
+			stopButton.Hide()
 			setControlsEnabled(true,
 				browseButton,
 				convertOnlyCheck,
@@ -340,8 +380,15 @@ func launchGUI() {
 			} else {
 				keepVideoAudioCheck.Disable()
 			}
+			if staticCheck.Checked {
+				kenBurnsSelect.Disable()
+			}
 
 			if runErr != nil {
+				if errors.Is(runErr, errGUIProcessStopped) {
+					dialog.ShowInformation("Stopped", "Generation stopped.", w)
+					return
+				}
 				dialog.ShowError(runErr, w)
 				return
 			}
@@ -349,9 +396,6 @@ func launchGUI() {
 			dialog.ShowInformation("Done", "Video generated successfully.", w)
 		}()
 	}
-
-	header := widget.NewLabel(utils.GetVersionInfo())
-	header.TextStyle = fyne.TextStyle{Bold: true}
 
 	folderRow := container.NewBorder(nil, nil, nil, browseButton, folderEntry)
 
@@ -361,8 +405,7 @@ func launchGUI() {
 		labeledField("FPS", fpsSelect),
 	)
 
-	overlayGrid := container.NewGridWithColumns(2,
-		labeledField("Ken Burns mode", kenBurnsSelect),
+	overlayGrid := container.NewGridWithColumns(1,
 		labeledField("Overlay font size", fontSizeEntry),
 	)
 
@@ -371,9 +414,10 @@ func launchGUI() {
 			convertOnlyCheck,
 			staticCheck,
 			fitAudioCheck,
-			includeVideosCheck,
+			labeledField("Motion style", kenBurnsSelect),
 		),
 		container.NewVBox(
+			includeVideosCheck,
 			keepVideoAudioCheck,
 			orderByFilenameCheck,
 			fullHDCheck,
@@ -389,13 +433,13 @@ func launchGUI() {
 		timingGrid,
 		overlayGrid,
 		optionsGrid,
-		container.NewHBox(layout.NewSpacer(), runButton),
+		container.NewHBox(elapsedLabel, layout.NewSpacer(), stopButton, runButton),
 	)
 
-	logPanel := widget.NewCard("", "", container.NewVBox(logHeader, logOutput))
+	logPanel := widget.NewCard("", "", logOutput)
 
 	content := container.NewBorder(
-		container.NewVBox(header, widget.NewSeparator()),
+		nil,
 		logPanel,
 		nil,
 		nil,
@@ -451,13 +495,6 @@ func setControlsEnabled(enabled bool, controls ...disableable) {
 	}
 }
 
-func formatElapsedTime(elapsed time.Duration) string {
-	totalSeconds := int(elapsed.Seconds())
-	minutes := totalSeconds / 60
-	seconds := totalSeconds % 60
-	return fmt.Sprintf("%02d:%02d", minutes, seconds)
-}
-
 func scrollEntryToEnd(entry *widget.Entry, text string) {
 	entry.CursorRow = strings.Count(text, "\n")
 	lastLineBreak := strings.LastIndex(text, "\n")
@@ -469,7 +506,7 @@ func scrollEntryToEnd(entry *widget.Entry, text string) {
 	entry.Refresh()
 }
 
-func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string)) error {
+func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string), stopRequested <-chan struct{}) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to resolve executable path: %w", err)
@@ -517,6 +554,7 @@ func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string)) error 
 	cmd := exec.Command(exePath, args...)
 	cmd.Dir = opts.inputFolder
 	cmd.Env = append(os.Environ(), "GO24K_INTERNAL_CLI=1")
+	prepareGUICommand(cmd)
 
 	reader, writer, err := os.Pipe()
 	if err != nil {
@@ -558,10 +596,31 @@ func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string)) error 
 		}
 	}()
 
-	waitErr := cmd.Wait()
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- cmd.Wait()
+	}()
+
+	stopped := false
+	var waitErr error
+	select {
+	case waitErr = <-waitDone:
+	case <-stopRequested:
+		stopped = true
+		onOutput("\nStopping generation...\n")
+		if err := terminateGUICommand(cmd); err != nil {
+			onOutput(fmt.Sprintf("Failed to stop process tree cleanly: %v\n", err))
+		}
+		waitErr = <-waitDone
+	}
+
 	readErr := <-readDone
 	if readErr != nil {
 		return fmt.Errorf("failed reading process output: %w", readErr)
+	}
+
+	if stopped {
+		return errGUIProcessStopped
 	}
 
 	if waitErr != nil {

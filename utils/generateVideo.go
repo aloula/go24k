@@ -17,14 +17,15 @@ import (
 )
 
 const (
-	linuxOS               = "linux"
-	resolution4K          = "3840x2160"
-	resolutionFullHD      = "1920x1080"
-	outputVideoLegacy     = "video.mp4"
-	outputVideoUHD        = "video_uhd.mp4"
-	outputVideoFHD        = "video_fhd.mp4"
-	kenBurnsModeCinematic = "cinematic"
-	kenBurnsModeDynamic   = "dynamic"
+	linuxOS            = "linux"
+	resolution4K       = "3840x2160"
+	resolutionFullHD   = "1920x1080"
+	outputVideoLegacy  = "video.mp4"
+	outputVideoUHD     = "video_uhd.mp4"
+	outputVideoFHD     = "video_fhd.mp4"
+	kenBurnsModeLow    = "low"
+	kenBurnsModeMedium = "medium"
+	kenBurnsModeHigh   = "high"
 )
 
 // activeResolution holds the target output resolution for the current run.
@@ -37,7 +38,7 @@ var activeFPS = 30
 
 // activeKenBurnsMode holds the motion profile for Ken Burns when enabled.
 // Set at the start of GenerateVideo().
-var activeKenBurnsMode = kenBurnsModeDynamic
+var activeKenBurnsMode = kenBurnsModeHigh
 
 // VideoInfo contains technical details about a video file
 type VideoInfo struct {
@@ -823,6 +824,7 @@ func collectMediaInputs(imageDuration float64, includeVideos, orderByFilename bo
 				return nil, fmt.Errorf("video %s has invalid duration %.2f", file, duration)
 			}
 
+			videoSortName := mediaSortName(file)
 			media = append(media, MediaInput{
 				Path:            file,
 				IsImage:         false,
@@ -830,17 +832,14 @@ func collectMediaInputs(imageDuration float64, includeVideos, orderByFilename bo
 				SegmentDuration: duration,
 				CapturedAt:      capturedAt,
 				HasCapturedAt:   hasCapturedAt,
-				SortName:        mediaSortName(file),
+				SortName:        videoSortName,
 			})
 		}
 	}
 
 	sort.Slice(media, func(i, j int) bool {
-		left := mediaSortName(media[i].SortName)
-		right := mediaSortName(media[j].SortName)
-
 		if orderByFilename {
-			return left < right
+			return media[i].SortName < media[j].SortName
 		}
 
 		if media[i].HasCapturedAt && media[j].HasCapturedAt {
@@ -848,7 +847,7 @@ func collectMediaInputs(imageDuration float64, includeVideos, orderByFilename bo
 				return media[i].CapturedAt.Before(media[j].CapturedAt)
 			}
 		}
-		return left < right
+		return media[i].SortName < media[j].SortName
 	})
 
 	if len(media) == 0 {
@@ -1002,7 +1001,7 @@ func hasAudioStream(filename string) (bool, error) {
 
 func extractImageTimestampFromConvertedName(path string) (time.Time, bool) {
 	base := filepath.Base(path)
-	base = strings.TrimSuffix(base, "_uhd.jpg")
+	base = trimConvertedImageResolutionSuffix(base)
 
 	if len(base) >= len("20060102_150405") {
 		candidate := base[:len("20060102_150405")]
@@ -1661,12 +1660,21 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 func normalizeKenBurnsMode(mode string) string {
 	mode = strings.TrimSpace(strings.ToLower(mode))
 	switch mode {
-	case kenBurnsModeCinematic:
-		return kenBurnsModeCinematic
-	case kenBurnsModeDynamic:
-		return kenBurnsModeDynamic
+	case kenBurnsModeLow:
+		return kenBurnsModeLow
+	case kenBurnsModeMedium:
+		return kenBurnsModeMedium
+	case kenBurnsModeHigh:
+		return kenBurnsModeHigh
+	// Backward-compatibility aliases from previous releases.
+	case "subtle":
+		return kenBurnsModeLow
+	case "cinematic":
+		return kenBurnsModeMedium
+	case "dynamic":
+		return kenBurnsModeHigh
 	default:
-		return kenBurnsModeDynamic
+		return kenBurnsModeHigh
 	}
 }
 
@@ -1682,85 +1690,68 @@ func getKenBurnsEffect(duration float64) string {
 	mode := normalizeKenBurnsMode(activeKenBurnsMode)
 
 	startZoom := 1.00
-	endZoom := 1.04
-	panSpan := 0.04
-	if mode == kenBurnsModeDynamic {
-		endZoom = 1.08
-		panSpan = 0.08
+	endZoom := 1.07
+	offsetX := "126"
+	offsetY := "70"
+
+	if mode == kenBurnsModeLow {
+		endZoom = 1.04
+		offsetX = "98"
+		offsetY = "56"
+	} else if mode == kenBurnsModeHigh {
+		endZoom = 1.10
+		offsetX = "154"
+		offsetY = "84"
 	}
+
 	if activeResolution == resolutionFullHD {
-		if mode == kenBurnsModeDynamic {
-			endZoom = 1.06
-			panSpan = 0.06
-		} else {
-			// Full HD still uses a gentler profile than 4K to avoid visible stepping.
+		if mode == kenBurnsModeLow {
 			endZoom = 1.03
-			panSpan = 0.03
+			offsetX = "70"
+			offsetY = "40"
+		} else if mode == kenBurnsModeMedium {
+			endZoom = 1.05
+			offsetX = "84"
+			offsetY = "48"
+		} else {
+			endZoom = 1.07
+			offsetX = "98"
+			offsetY = "56"
 		}
 	}
 
-	frameDiv := float64(totalFrames - 1)
-	if frameDiv < 1 {
-		frameDiv = 1
-	}
-	frameDivStr := strconv.FormatFloat(frameDiv, 'f', 3, 64)
-	progressExpr := fmt.Sprintf("(0.5-0.5*cos(PI*on/%s))", frameDivStr)
-
-	center := 0.5
-	low := center - (panSpan / 2)
-	high := center + (panSpan / 2)
-
 	// zoompan runs at the supersampled canvas; processImageFilter then scales back to activeResolution.
 	superRes := supersampledResolution()
+	zoomStep := (endZoom - startZoom) / float64(totalFrames)
+	if zoomStep < 0.0001 {
+		zoomStep = 0.0001
+	}
+	zoomStepStr := strconv.FormatFloat(zoomStep, 'f', 6, 64)
+	endZoomStr := strconv.FormatFloat(endZoom, 'f', 2, 64)
 
-	buildExpr := func(xStart, yStart, xEnd, yEnd, zoomFrom, zoomTo float64) string {
-		xStartStr := strconv.FormatFloat(xStart, 'f', 3, 64)
-		yStartStr := strconv.FormatFloat(yStart, 'f', 3, 64)
-		xEndStr := strconv.FormatFloat(xEnd, 'f', 3, 64)
-		yEndStr := strconv.FormatFloat(yEnd, 'f', 3, 64)
-		zoomFromStr := strconv.FormatFloat(zoomFrom, 'f', 2, 64)
-		zoomToStr := strconv.FormatFloat(zoomTo, 'f', 2, 64)
-
+	buildExpr := func(xOffset, yOffset string) string {
 		return fmt.Sprintf(
-			"zoompan=z='%s+(%s-%s)*%s':x='(iw-iw/zoom)*(%s+(%s-%s)*%s)':y='(ih-ih/zoom)*(%s+(%s-%s)*%s)':d=%d:s=%s",
-			zoomFromStr,
-			zoomToStr,
-			zoomFromStr,
-			progressExpr,
-			xStartStr,
-			xEndStr,
-			xStartStr,
-			progressExpr,
-			yStartStr,
-			yEndStr,
-			yStartStr,
-			progressExpr,
+			"zoompan=z='min(zoom+%s,%s)':x='iw/2-(iw/zoom/2)%s':y='ih/2-(ih/zoom/2)%s':d=%d:s=%s",
+			zoomStepStr,
+			endZoomStr,
+			xOffset,
+			yOffset,
 			totalFrames,
 			superRes,
 		)
 	}
 
-	// Cinematic mode stays center-locked; dynamic mode restores directional motion.
+	// Pan+zoom variants across all intensity levels (low/medium/high).
 	variants := []string{
-		buildExpr(center, center, center, center, startZoom, endZoom),
-		buildExpr(center, center, center, center, endZoom, startZoom),
-	}
-	if mode == kenBurnsModeDynamic {
-		variants = []string{
-			buildExpr(low, low, high, high, startZoom, endZoom),
-			buildExpr(high, low, low, high, startZoom, endZoom),
-			buildExpr(low, high, high, low, startZoom, endZoom),
-			buildExpr(high, high, low, low, startZoom, endZoom),
-			buildExpr(low, low, center, center, startZoom, endZoom),
-			buildExpr(high, high, center, center, startZoom, endZoom),
-			buildExpr(center, low, center, high, startZoom, endZoom),
-			buildExpr(low, center, high, center, startZoom, endZoom),
-		}
+		buildExpr("+"+offsetX, ""),
+		buildExpr("-"+offsetX, ""),
+		buildExpr("", "+"+offsetY),
+		buildExpr("", "-"+offsetY),
+		buildExpr("+"+offsetX, "+"+offsetY),
+		buildExpr("-"+offsetX, "+"+offsetY),
+		buildExpr("+"+offsetX, "-"+offsetY),
+		buildExpr("-"+offsetX, "-"+offsetY),
 	}
 
-	// Randomly choose one variant.
-	expr := variants[rand.Intn(len(variants))]
-
-	//fmt.Println("Ken Burns effect:", expr)
-	return expr
+	return variants[rand.Intn(len(variants))]
 }

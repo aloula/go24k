@@ -52,8 +52,16 @@ func TestMainFlags(t *testing.T) {
 			args: []string{"go24k", "-order-by-filename"},
 		},
 		{
-			name: "Ken Burns dynamic mode",
-			args: []string{"go24k", "-kenburns-mode", "dynamic"},
+			name: "Ken Burns high mode",
+			args: []string{"go24k", "-kenburns-mode", "high"},
+		},
+		{
+			name: "Ken Burns low mode",
+			args: []string{"go24k", "-kenburns-mode", "low"},
+		},
+		{
+			name: "Ken Burns medium mode",
+			args: []string{"go24k", "-kenburns-mode", "medium"},
 		},
 	}
 
@@ -71,7 +79,7 @@ func TestMainFlags(t *testing.T) {
 			includeVideos := flag.Bool("include-videos", false, "Include supported video files together with pictures")
 			keepVideoAudio := flag.Bool("keep-video-audio", false, "Keep input video audio and blend it with MP3 background audio")
 			orderByFilename := flag.Bool("order-by-filename", false, "Order timeline by filename instead of metadata time")
-			kenBurnsMode := flag.String("kenburns-mode", "dynamic", "Ken Burns mode: cinematic or dynamic")
+			kenBurnsMode := flag.String("kenburns-mode", "high", "Ken Burns mode intensity: low, medium, or high")
 
 			// Parse the test arguments
 			os.Args = tt.args
@@ -118,9 +126,17 @@ func TestMainFlags(t *testing.T) {
 				if !*orderByFilename {
 					t.Error("order-by-filename flag should be true")
 				}
-			case "Ken Burns dynamic mode":
-				if *kenBurnsMode != "dynamic" {
-					t.Errorf("kenburns-mode should be dynamic, got %s", *kenBurnsMode)
+			case "Ken Burns high mode":
+				if *kenBurnsMode != "high" {
+					t.Errorf("kenburns-mode should be high, got %s", *kenBurnsMode)
+				}
+			case "Ken Burns low mode":
+				if *kenBurnsMode != "low" {
+					t.Errorf("kenburns-mode should be low, got %s", *kenBurnsMode)
+				}
+			case "Ken Burns medium mode":
+				if *kenBurnsMode != "medium" {
+					t.Errorf("kenburns-mode should be medium, got %s", *kenBurnsMode)
 				}
 			}
 		})

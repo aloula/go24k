@@ -33,9 +33,11 @@ func ConvertImages(fullHD bool) error {
 	// Determine canvas dimensions.
 	targetWidth, targetHeight := 3840, 2160
 	resLabel := "4K UHD"
+	imageSuffix := "uhd"
 	if fullHD {
 		targetWidth, targetHeight = 1920, 1080
 		resLabel = "Full HD"
+		imageSuffix = "fhd"
 	}
 
 	// Check if "converted" directory already exists.
@@ -111,8 +113,8 @@ func ConvertImages(fullHD bool) error {
 			return fmt.Errorf("failed to open image %s: %v", file, err)
 		}
 
-		// Resize and process image.
-		imgResized := imaging.Resize(img, 0, targetHeight, imaging.Lanczos)
+		// Fit image inside target canvas without cropping, allowing upscale when needed.
+		imgResized := resizeImageToCanvas(img, targetWidth, targetHeight)
 
 		// Create a black background.
 		uhdBlack := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
@@ -129,7 +131,7 @@ func ConvertImages(fullHD bool) error {
 		}
 
 		// Save converted image.
-		filenameConverted := filepath.Join("converted", fmt.Sprintf("%s_uhd.jpg", timestamp))
+		filenameConverted := filepath.Join("converted", fmt.Sprintf("%s_%s.jpg", timestamp, imageSuffix))
 		if err := imaging.Save(imgConverted, filenameConverted); err != nil {
 			return fmt.Errorf("failed to save converted image %s: %v", filenameConverted, err)
 		}
@@ -141,6 +143,44 @@ func ConvertImages(fullHD bool) error {
 	}
 
 	return nil
+}
+
+func resizeImageToCanvas(img image.Image, targetWidth, targetHeight int) *image.NRGBA {
+	bounds := img.Bounds()
+	sourceWidth := bounds.Dx()
+	sourceHeight := bounds.Dy()
+
+	if sourceWidth <= 0 || sourceHeight <= 0 {
+		return imaging.Resize(img, targetWidth, targetHeight, imaging.Lanczos)
+	}
+
+	widthScale := float64(targetWidth) / float64(sourceWidth)
+	heightScale := float64(targetHeight) / float64(sourceHeight)
+	scale := widthScale
+	if heightScale < scale {
+		scale = heightScale
+	}
+
+	resizedWidth := int(float64(sourceWidth)*scale + 0.5)
+	resizedHeight := int(float64(sourceHeight)*scale + 0.5)
+	if resizedWidth < 1 {
+		resizedWidth = 1
+	}
+	if resizedHeight < 1 {
+		resizedHeight = 1
+	}
+
+	return imaging.Resize(img, resizedWidth, resizedHeight, imaging.Lanczos)
+}
+
+func trimConvertedImageResolutionSuffix(baseName string) string {
+	if strings.HasSuffix(baseName, "_uhd.jpg") {
+		return strings.TrimSuffix(baseName, "_uhd.jpg")
+	}
+	if strings.HasSuffix(baseName, "_fhd.jpg") {
+		return strings.TrimSuffix(baseName, "_fhd.jpg")
+	}
+	return strings.TrimSuffix(baseName, filepath.Ext(baseName))
 }
 
 // FetchImageTimestamp reads the timestamp from the image's EXIF data and returns it in YYYYMMDD_HHMMSS format.
@@ -358,14 +398,20 @@ func FormatCameraInfoOverlay(info *CameraInfo, fontSize, imageIndex int) string 
 		overlayText = strings.ReplaceAll(overlayText, " ", "\\ ")
 
 		xPosition := "(w-tw)/2"
-		yPosition := "h-th-20"
+		yPosition := "h-th-40"
+		if activeResolution == resolutionFullHD {
+			yPosition = "h-th-30"
+		}
 		return fmt.Sprintf(",drawtext=text=%s:fontsize=%d:fontcolor=white:x=%s:y=%s:box=1:boxcolor=black@0.5:boxborderw=5",
 			overlayText, fontSize, xPosition, yPosition)
 	}
 
 	// Position fixed at footer (bottom center)
 	xPosition := "(w-tw)/2" // Horizontal center
-	yPosition := "h-th-20"  // Bottom with 20px margin
+	yPosition := "h-th-40"  // Bottom with 40px margin in UHD, 30px in Full HD
+	if activeResolution == resolutionFullHD {
+		yPosition = "h-th-30"
+	}
 
 	// Build the complete FFmpeg drawtext filter using textfile parameter with reload
 	// Add reload=1 to force FFmpeg to read the file content for each frame
@@ -379,9 +425,9 @@ func FormatCameraInfoOverlay(info *CameraInfo, fontSize, imageIndex int) string 
 // by matching the timestamp pattern in the converted filename
 func GetOriginalFilename(convertedFile string) string {
 	// Extract timestamp from converted filename
-	// Format: converted/YYYYMMDD_HHMMSS_uhd.jpg
+	// Format: converted/YYYYMMDD_HHMMSS_uhd.jpg or converted/YYYYMMDD_HHMMSS_fhd.jpg
 	baseName := filepath.Base(convertedFile)
-	timestamp := strings.TrimSuffix(baseName, "_uhd.jpg")
+	timestamp := trimConvertedImageResolutionSuffix(baseName)
 
 	// Look for original files with matching timestamps
 	files, err := filepath.Glob("*.jpg")
@@ -406,15 +452,11 @@ func GetOriginalFilename(convertedFile string) string {
 		}
 	}
 
-	// Fallback: try to match by similar naming patterns
-	for _, file := range files {
-		if strings.Contains(file, "converted/") {
-			continue
-		}
-
-		// If we can't find by timestamp, return the first available original file
-		// This is a simple fallback that works for single-image scenarios
-		return file
+	// Fallback: when timestamp matching fails, use the timestamp from the converted name
+	// This preserves the alphabetical ordering when original files can't be found.
+	// Only do this when the extracted name looks like a valid timestamp (YYYYMMDD_HHMMSS).
+	if len(timestamp) == 15 && timestamp[8] == '_' {
+		return timestamp + ".jpg"
 	}
 
 	return ""

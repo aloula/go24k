@@ -1,7 +1,7 @@
 {
-    "go.buildTags": "integration",
+    "go.buildTags": "integration,fyne",
     "go.testTags": "integration",
     "gopls": {
-        "build.buildFlags": ["-tags=integration"]
+        "build.buildFlags": ["-tags=integration,fyne"]
     }
 }

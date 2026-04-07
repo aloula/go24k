@@ -213,8 +213,8 @@ func TestGetKenBurnsEffect(t *testing.T) {
 				t.Error("Effect should contain 'zoompan' filter")
 			}
 
-			if !strings.Contains(effect, "cos(PI*on/") {
-				t.Error("Effect should contain eased motion expression")
+			if !strings.Contains(effect, "cos(PI*on/") && !strings.Contains(effect, "min(zoom+") {
+				t.Error("Effect should contain a valid motion expression")
 			}
 
 			// Should contain supersampled resolution (2× active) used to prevent zoompan jitter
@@ -240,12 +240,14 @@ func TestNormalizeKenBurnsMode(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{name: "default empty", input: "", expected: kenBurnsModeDynamic},
-		{name: "cinematic", input: "cinematic", expected: kenBurnsModeCinematic},
-		{name: "cinematic mixed case", input: "CiNeMaTiC", expected: kenBurnsModeCinematic},
-		{name: "dynamic", input: "dynamic", expected: kenBurnsModeDynamic},
-		{name: "dynamic with spaces", input: "  dynamic  ", expected: kenBurnsModeDynamic},
-		{name: "invalid", input: "fast", expected: kenBurnsModeDynamic},
+		{name: "default empty", input: "", expected: kenBurnsModeHigh},
+		{name: "low", input: "low", expected: kenBurnsModeLow},
+		{name: "medium", input: "medium", expected: kenBurnsModeMedium},
+		{name: "high", input: "high", expected: kenBurnsModeHigh},
+		{name: "legacy subtle", input: "subtle", expected: kenBurnsModeLow},
+		{name: "legacy cinematic", input: "cinematic", expected: kenBurnsModeMedium},
+		{name: "legacy dynamic", input: "dynamic", expected: kenBurnsModeHigh},
+		{name: "invalid", input: "fast", expected: kenBurnsModeHigh},
 	}
 
 	for _, tc := range testCases {
@@ -271,17 +273,28 @@ func TestGetKenBurnsEffect_ModeSelection(t *testing.T) {
 	activeResolution = resolution4K
 	activeFPS = 30
 
-	// Dynamic 4K mode: panSpan=0.08, so low=0.460, high=0.540.
-	activeKenBurnsMode = kenBurnsModeCinematic
-	cinematic := getKenBurnsEffect(5)
-	if strings.Contains(cinematic, "0.460") || strings.Contains(cinematic, "0.540") {
-		t.Fatalf("cinematic mode should remain center-locked, got: %s", cinematic)
+	activeKenBurnsMode = kenBurnsModeLow
+	low := getKenBurnsEffect(5)
+	if !strings.Contains(low, "min(zoom+") {
+		t.Fatalf("low mode should use incremental zoom expression, got: %s", low)
+	}
+	if !strings.Contains(low, "+98") && !strings.Contains(low, "-98") && !strings.Contains(low, "+56") && !strings.Contains(low, "-56") {
+		t.Fatalf("low mode should include low-intensity pan offsets, got: %s", low)
 	}
 
-	activeKenBurnsMode = kenBurnsModeDynamic
-	dynamic := getKenBurnsEffect(5)
-	if !strings.Contains(dynamic, "0.460") && !strings.Contains(dynamic, "0.540") {
-		t.Fatalf("dynamic mode should include directional pan offsets, got: %s", dynamic)
+	activeKenBurnsMode = kenBurnsModeMedium
+	medium := getKenBurnsEffect(5)
+	if !strings.Contains(medium, "+126") && !strings.Contains(medium, "-126") && !strings.Contains(medium, "+70") && !strings.Contains(medium, "-70") {
+		t.Fatalf("medium mode should include medium-intensity pan offsets, got: %s", medium)
+	}
+
+	activeKenBurnsMode = kenBurnsModeHigh
+	high := getKenBurnsEffect(5)
+	if !strings.Contains(high, "min(zoom+") {
+		t.Fatalf("high mode should use incremental zoom expression, got: %s", high)
+	}
+	if !strings.Contains(high, "+154") && !strings.Contains(high, "-154") && !strings.Contains(high, "+84") && !strings.Contains(high, "-84") {
+		t.Fatalf("high mode should include high-intensity pan offsets, got: %s", high)
 	}
 }
 
@@ -441,15 +454,15 @@ func TestKenBurnsEffect_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("Check_zoom_parameters", func(t *testing.T) {
-		activeKenBurnsMode = kenBurnsModeDynamic
+		activeKenBurnsMode = kenBurnsModeHigh
 		effect := getKenBurnsEffect(5)
 
-		// Verify the aggressive Ken Burns zoom range for dynamic mode (1.00 -> 1.08)
-		if !strings.Contains(effect, "1.00") {
-			t.Error("Expected start zoom 1.00 in zoompan expression")
+		// Verify high mode uses incremental zoom up to 1.10.
+		if !strings.Contains(effect, "min(zoom+") {
+			t.Error("Expected incremental zoom expression in zoompan filter")
 		}
-		if !strings.Contains(effect, "1.08") {
-			t.Error("Expected end zoom 1.08 (aggressive dynamic mode)")
+		if !strings.Contains(effect, "1.10") {
+			t.Error("Expected end zoom 1.10 for high mode")
 		}
 	})
 
@@ -613,6 +626,15 @@ func TestExtractImageTimestampFromConvertedName(t *testing.T) {
 		t.Fatalf("unexpected parsed timestamp: %s", ts.Format("20060102_150405"))
 	}
 
+	ts, ok = extractImageTimestampFromConvertedName("converted/20240223_153741_fhd.jpg")
+	if !ok {
+		t.Fatalf("expected timestamp to be extracted for _fhd suffix")
+	}
+
+	if ts.Format("20060102_150405") != "20240223_153741" {
+		t.Fatalf("unexpected parsed timestamp for _fhd: %s", ts.Format("20060102_150405"))
+	}
+
 	_, ok = extractImageTimestampFromConvertedName("converted/not_a_timestamp_uhd.jpg")
 	if ok {
 		t.Fatalf("expected no timestamp for invalid converted filename")
@@ -667,6 +689,7 @@ func TestExtractCaptureTimeFromFilename(t *testing.T) {
 		ok       bool
 	}{
 		{name: "converted style", filename: "converted/20240223_153741_uhd.jpg", expected: "20240223_153741", ok: true},
+		{name: "converted fullhd style", filename: "converted/20240223_153741_fhd.jpg", expected: "20240223_153741", ok: true},
 		{name: "iso style", filename: "VID_2024-02-23_15-37-41.mp4", expected: "20240223_153741", ok: true},
 		{name: "compact style", filename: "IMG20240223153741.jpg", expected: "20240223_153741", ok: true},
 		{name: "invalid", filename: "holiday-final-cut.mp4", ok: false},
@@ -727,12 +750,10 @@ func TestMediaSorting_OrderByFilenameMode(t *testing.T) {
 	}
 
 	orderByFilename := true
+	// Use the EXACT same comparator as production code in collectMediaInputs
 	sort.Slice(media, func(i, j int) bool {
-		left := mediaSortName(media[i].SortName)
-		right := mediaSortName(media[j].SortName)
-
 		if orderByFilename {
-			return left < right
+			return media[i].SortName < media[j].SortName
 		}
 
 		if media[i].HasCapturedAt && media[j].HasCapturedAt {
@@ -740,11 +761,40 @@ func TestMediaSorting_OrderByFilenameMode(t *testing.T) {
 				return media[i].CapturedAt.Before(media[j].CapturedAt)
 			}
 		}
-		return left < right
+		return media[i].SortName < media[j].SortName
 	})
 
 	if media[0].Path != "a-first.jpg" {
-		t.Fatalf("expected filename ordering, got %s first", media[0].Path)
+		t.Fatalf("expected filename ordering (a-first before z-last), got %s first", media[0].Path)
+	}
+}
+
+func TestMediaSorting_OrderByFilenameMode_WithVideos(t *testing.T) {
+	// Test that images and videos sort together by filename when orderByFilename=true
+	media := []MediaInput{
+		{Path: "converted/z_uhd.jpg", SortName: "z.jpg", IsImage: true},
+		{Path: "intro.mp4", SortName: "intro.mp4", IsImage: false},
+		{Path: "converted/a_uhd.jpg", SortName: "a.jpg", IsImage: true},
+		{Path: "outro.mp4", SortName: "outro.mp4", IsImage: false},
+	}
+
+	orderByFilename := true
+	sort.Slice(media, func(i, j int) bool {
+		if orderByFilename {
+			return media[i].SortName < media[j].SortName
+		}
+
+		if media[i].HasCapturedAt && media[j].HasCapturedAt {
+			if !media[i].CapturedAt.Equal(media[j].CapturedAt) {
+				return media[i].CapturedAt.Before(media[j].CapturedAt)
+			}
+		}
+		return media[i].SortName < media[j].SortName
+	})
+
+	// Expected order: a.jpg, intro.mp4, outro.mp4, z.jpg (alphabetical by SortName)
+	if media[0].SortName != "a.jpg" || media[1].SortName != "intro.mp4" || media[2].SortName != "outro.mp4" || media[3].SortName != "z.jpg" {
+		t.Fatalf("expected alphabetical ordering by SortName, got %v", []string{media[0].SortName, media[1].SortName, media[2].SortName, media[3].SortName})
 	}
 }
 

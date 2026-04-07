@@ -48,8 +48,9 @@ Observação: builds padrão (sem `-tags fyne`) continuam funcionando para CLI e
 A GUI permite:
 
 - Selecionar a pasta com imagens, músicas e vídeos.
-- Configurar duração, transição, FPS e modo do Ken Burns.
+- Configurar duração, transição, FPS e estilo de movimento (pan + zoom em low/medium/high).
 - Ativar opções como fit-audio, include-videos, keep-video-audio, fullhd e exif-overlay.
+- Desabilitar movimento com `-static` (na GUI, isso desativa o seletor de estilo de movimento).
 - Executar a geração e acompanhar log/progresso em tempo real.
 
 Saída padrão:
@@ -70,7 +71,7 @@ Saída padrão:
 - -include-videos: inclui mp4, mov, mkv, avi, webm e m4v na timeline.
 - -keep-video-audio: preserva áudio dos vídeos de entrada.
 - -order-by-filename: ignora metadata e ordena por nome.
-- -kenburns-mode <cinematic|dynamic>: escolhe o perfil do movimento.
+- -kenburns-mode <low|medium|high>: escolhe a intensidade do pan + zoom.
 - -exif-overlay: adiciona legenda com dados da câmera.
 - -overlay-font-size <pixels>: tamanho da fonte do overlay. Padrão: 36.
 - --debug: mostra detecção de hardware e parâmetros do FFmpeg.
