@@ -55,7 +55,8 @@ A GUI permite:
 Saída padrão:
 
 - converted/: imagens convertidas
-- video.mp4: vídeo final
+- video_uhd.mp4: vídeo final quando a saída é 4K UHD (padrão)
+- video_fhd.mp4: vídeo final quando a saída é Full HD (`-fullhd`)
 
 ## Flags principais
 

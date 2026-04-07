@@ -581,7 +581,7 @@ func TestFindVideoFiles_ExcludesOutputVideo(t *testing.T) {
 		t.Fatalf("Chdir failed: %v", err)
 	}
 
-	for _, name := range []string{"clip.mp4", "scene.mov", outputVideo} {
+	for _, name := range []string{"clip.mp4", "scene.mov", outputVideoUHD, outputVideoFHD, outputVideoLegacy} {
 		if err := os.WriteFile(name, []byte("test"), 0644); err != nil {
 			t.Fatalf("WriteFile(%s) failed: %v", name, err)
 		}
@@ -593,8 +593,10 @@ func TestFindVideoFiles_ExcludesOutputVideo(t *testing.T) {
 	}
 
 	joined := strings.Join(files, ",")
-	if strings.Contains(joined, outputVideo) {
-		t.Fatalf("findVideoFiles should exclude %s, got %v", outputVideo, files)
+	for _, generated := range []string{outputVideoUHD, outputVideoFHD, outputVideoLegacy} {
+		if strings.Contains(joined, generated) {
+			t.Fatalf("findVideoFiles should exclude %s, got %v", generated, files)
+		}
 	}
 	if !strings.Contains(joined, "clip.mp4") || !strings.Contains(joined, "scene.mov") {
 		t.Fatalf("findVideoFiles missed expected inputs, got %v", files)

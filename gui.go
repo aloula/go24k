@@ -262,19 +262,56 @@ func launchGUI() {
 				}
 			}()
 
-			var fullLog guiLogBuffer
+			logChunks := make(chan string, 1024)
+			logDone := make(chan string, 1)
+			go func() {
+				var fullLog guiLogBuffer
+				var pending strings.Builder
+				ticker := time.NewTicker(120 * time.Millisecond)
+				defer ticker.Stop()
+
+				flushPending := func() {
+					if pending.Len() == 0 {
+						return
+					}
+					updatedLog := fullLog.Append(pending.String())
+					pending.Reset()
+					_ = logBinding.Set(updatedLog)
+					scrollEntryToEnd(logOutput, updatedLog)
+				}
+
+				for {
+					select {
+					case chunk, ok := <-logChunks:
+						if !ok {
+							flushPending()
+							finalLog := fullLog.Flush()
+							_ = logBinding.Set(finalLog)
+							scrollEntryToEnd(logOutput, finalLog)
+							logDone <- finalLog
+							return
+						}
+						pending.WriteString(chunk)
+						if pending.Len() >= 8192 {
+							flushPending()
+						}
+					case <-ticker.C:
+						flushPending()
+					}
+				}
+			}()
+
 			appendLog := func(chunk string) {
 				if chunk == "" {
 					return
 				}
-				updatedLog := fullLog.Append(chunk)
-				_ = logBinding.Set(updatedLog)
-				scrollEntryToEnd(logOutput, updatedLog)
+				logChunks <- chunk
 			}
 
 			runErr := runGeneratorFromGUIStreaming(opts, appendLog)
+			close(logChunks)
+			finalLog := <-logDone
 			close(stopIndicator)
-			finalLog := fullLog.Flush()
 			_ = logBinding.Set(finalLog)
 			scrollEntryToEnd(logOutput, finalLog)
 
@@ -497,6 +534,10 @@ func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string)) error 
 		return fmt.Errorf("failed to start go24k: %w", err)
 	}
 
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("failed to close parent output pipe writer: %w", err)
+	}
+
 	readDone := make(chan error, 1)
 	go func() {
 		buf := make([]byte, 4096)
@@ -518,7 +559,6 @@ func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string)) error 
 	}()
 
 	waitErr := cmd.Wait()
-	_ = writer.Close()
 	readErr := <-readDone
 	if readErr != nil {
 		return fmt.Errorf("failed reading process output: %w", readErr)

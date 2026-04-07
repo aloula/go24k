@@ -20,7 +20,9 @@ const (
 	linuxOS               = "linux"
 	resolution4K          = "3840x2160"
 	resolutionFullHD      = "1920x1080"
-	outputVideo           = "video.mp4"
+	outputVideoLegacy     = "video.mp4"
+	outputVideoUHD        = "video_uhd.mp4"
+	outputVideoFHD        = "video_fhd.mp4"
 	kenBurnsModeCinematic = "cinematic"
 	kenBurnsModeDynamic   = "dynamic"
 )
@@ -729,6 +731,7 @@ type MediaInput struct {
 func findVideoFiles() ([]string, error) {
 	patterns := []string{"*.mp4", "*.mov", "*.mkv", "*.avi", "*.webm", "*.m4v"}
 	seen := make(map[string]struct{})
+	generatedOutputs := generatedOutputVideoNames()
 	var files []string
 
 	for _, pattern := range patterns {
@@ -737,7 +740,7 @@ func findVideoFiles() ([]string, error) {
 			return nil, fmt.Errorf("failed to list %s files: %v", pattern, err)
 		}
 		for _, match := range matches {
-			if strings.EqualFold(filepath.Base(match), outputVideo) {
+			if _, isGeneratedOutput := generatedOutputs[strings.ToLower(filepath.Base(match))]; isGeneratedOutput {
 				continue
 			}
 			if _, ok := seen[match]; ok {
@@ -750,6 +753,21 @@ func findVideoFiles() ([]string, error) {
 
 	sort.Strings(files)
 	return files, nil
+}
+
+func generatedOutputVideoNames() map[string]struct{} {
+	return map[string]struct{}{
+		strings.ToLower(outputVideoLegacy): {},
+		strings.ToLower(outputVideoUHD):    {},
+		strings.ToLower(outputVideoFHD):    {},
+	}
+}
+
+func outputVideoFilename() string {
+	if activeResolution == resolutionFullHD {
+		return outputVideoFHD
+	}
+	return outputVideoUHD
 }
 
 // collectMediaInputs builds a sorted timeline from converted images and optional videos.
@@ -1419,16 +1437,16 @@ func runFFmpegCommand(args []string, hasAudio bool) error {
 }
 
 // displayVideoInfo shows the final video information
-func displayVideoInfo(finalLength float64) {
+func displayVideoInfo(outputFilename string, finalLength float64) {
 	resLabel := "4K UHD"
 	if activeResolution == resolutionFullHD {
 		resLabel = "Full HD"
 	}
 	fmt.Printf("\n=== Video generated successfully! ===\n")
-	fmt.Printf("File: %s\n", outputVideo)
+	fmt.Printf("File: %s\n", outputFilename)
 
 	// Get detailed video information
-	if videoInfo, err := getVideoDetails(outputVideo); err == nil {
+	if videoInfo, err := getVideoDetails(outputFilename); err == nil {
 		fmt.Printf("Resolution: %s (%s)\n", videoInfo.Resolution, resLabel)
 		fmt.Printf("Duration: %.2f sec. (%.1fs actual)\n", finalLength, videoInfo.DurationSec)
 		fmt.Printf("File Size: %.1f MB\n", videoInfo.FileSizeMB)
@@ -1439,7 +1457,7 @@ func displayVideoInfo(finalLength float64) {
 		// Fallback to basic information if ffprobe fails
 		fmt.Printf("Resolution: %s (%s)\n", activeResolution, resLabel)
 		fmt.Printf("Duration: %.2f sec.\n", finalLength)
-		if fileInfo, err := os.Stat(outputVideo); err == nil {
+		if fileInfo, err := os.Stat(outputFilename); err == nil {
 			sizeMB := float64(fileInfo.Size()) / (1024 * 1024)
 			fmt.Printf("File Size: %.1f MB\n", sizeMB)
 		}
@@ -1464,6 +1482,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	}
 	activeFPS = fps
 	activeKenBurnsMode = normalizeKenBurnsMode(kenBurnsMode)
+	outputFilename := outputVideoFilename()
 
 	durationSec := float64(duration)
 	fadeSec := float64(fadeDuration)
@@ -1623,7 +1642,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	}
 
 	args = append(args, "-t", formatSeconds(finalLength))
-	args = append(args, outputVideo)
+	args = append(args, outputFilename)
 
 	// Execute FFmpeg command
 	if err := runFFmpegCommand(args, audioConfig.HasAudio); err != nil {
@@ -1636,7 +1655,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	}
 
 	// Display final information
-	displayVideoInfo(finalLength)
+	displayVideoInfo(outputFilename, finalLength)
 }
 
 func normalizeKenBurnsMode(mode string) string {
