@@ -44,6 +44,7 @@ type guiOptions struct {
 	fpsMode         string
 	fitAudio        bool
 	includeVideos   bool
+	includeMOV      bool
 	keepVideoAudio  bool
 	orderByFilename bool
 	fullHD          bool
@@ -151,18 +152,26 @@ func launchGUI() {
 	staticCheck := widget.NewCheck("Disable Ken Burns (static images)", nil)
 	fitAudioCheck := widget.NewCheck("Fit timeline to audio length", nil)
 	includeVideosCheck := widget.NewCheck("Include video files", nil)
+	includeMOVCheck := widget.NewCheck("Include MOV files", nil)
 	keepVideoAudioCheck := widget.NewCheck("Keep source video audio", nil)
 	orderByFilenameCheck := widget.NewCheck("Order by filename", nil)
 	fullHDCheck := widget.NewCheck("Output Full HD (1920x1080)", nil)
 	exifOverlayCheck := widget.NewCheck("Enable EXIF overlay", nil)
 
-	includeVideosCheck.OnChanged = func(checked bool) {
-		if checked {
+	updateVideoAudioControl := func() {
+		if includeVideosCheck.Checked || includeMOVCheck.Checked {
 			keepVideoAudioCheck.Enable()
 			return
 		}
 		keepVideoAudioCheck.SetChecked(false)
 		keepVideoAudioCheck.Disable()
+	}
+
+	includeVideosCheck.OnChanged = func(bool) {
+		updateVideoAudioControl()
+	}
+	includeMOVCheck.OnChanged = func(bool) {
+		updateVideoAudioControl()
 	}
 	keepVideoAudioCheck.Disable()
 
@@ -245,7 +254,8 @@ func launchGUI() {
 			fpsMode:         fpsSelect.Selected,
 			fitAudio:        fitAudioCheck.Checked,
 			includeVideos:   includeVideosCheck.Checked,
-			keepVideoAudio:  includeVideosCheck.Checked && keepVideoAudioCheck.Checked,
+			includeMOV:      includeMOVCheck.Checked,
+			keepVideoAudio:  (includeVideosCheck.Checked || includeMOVCheck.Checked) && keepVideoAudioCheck.Checked,
 			orderByFilename: orderByFilenameCheck.Checked,
 			fullHD:          fullHDCheck.Checked,
 			kenBurnsMode:    motionStyleToKenBurnsMode(kenBurnsSelect.Selected),
@@ -260,6 +270,7 @@ func launchGUI() {
 			staticCheck,
 			fitAudioCheck,
 			includeVideosCheck,
+			includeMOVCheck,
 			keepVideoAudioCheck,
 			orderByFilenameCheck,
 			fullHDCheck,
@@ -365,6 +376,7 @@ func launchGUI() {
 				staticCheck,
 				fitAudioCheck,
 				includeVideosCheck,
+				includeMOVCheck,
 				orderByFilenameCheck,
 				fullHDCheck,
 				exifOverlayCheck,
@@ -375,11 +387,7 @@ func launchGUI() {
 				kenBurnsSelect,
 				runButton,
 			)
-			if includeVideosCheck.Checked {
-				keepVideoAudioCheck.Enable()
-			} else {
-				keepVideoAudioCheck.Disable()
-			}
+			updateVideoAudioControl()
 			if staticCheck.Checked {
 				kenBurnsSelect.Disable()
 			}
@@ -418,6 +426,7 @@ func launchGUI() {
 		),
 		container.NewVBox(
 			includeVideosCheck,
+			includeMOVCheck,
 			keepVideoAudioCheck,
 			orderByFilenameCheck,
 			fullHDCheck,
@@ -537,6 +546,9 @@ func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string), stopRe
 	}
 	if opts.includeVideos {
 		args = append(args, "-include-videos")
+	}
+	if opts.includeMOV {
+		args = append(args, "-include-mov")
 	}
 	if opts.keepVideoAudio {
 		args = append(args, "-keep-video-audio")

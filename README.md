@@ -49,7 +49,7 @@ A GUI permite:
 
 - Selecionar a pasta com imagens, músicas e vídeos.
 - Configurar duração, transição, FPS e estilo de movimento (pan + zoom em low/medium/high).
-- Ativar opções como fit-audio, include-videos, keep-video-audio, fullhd e exif-overlay.
+- Ativar opções como fit-audio, include-videos, include-mov, keep-video-audio, fullhd e exif-overlay.
 - Desabilitar movimento com `-static` (na GUI, isso desativa o seletor de estilo de movimento).
 - Executar a geração e acompanhar log/progresso em tempo real.
 
@@ -69,6 +69,7 @@ Saída padrão:
 - -convert-only: apenas converte imagens.
 - -fit-audio: ajusta as imagens ao tempo da música quando aplicável.
 - -include-videos: inclui mp4, mov, mkv, avi, webm e m4v na timeline.
+- -include-mov: inclui apenas arquivos mov/MOV na timeline.
 - -keep-video-audio: preserva áudio dos vídeos de entrada.
 - -order-by-filename: ignora metadata e ordena por nome.
 - -kenburns-mode <low|medium|high>: escolhe a intensidade do pan + zoom.
@@ -90,6 +91,9 @@ Saída padrão:
 
 # Misturar fotos e vídeos
 ./go24k -include-videos
+
+# Incluir apenas arquivos MOV
+./go24k -include-mov
 
 # Misturar áudio dos vídeos com o MP3 de fundo
 ./go24k -include-videos -keep-video-audio

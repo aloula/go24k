@@ -728,28 +728,45 @@ type MediaInput struct {
 	SortName        string
 }
 
-// findVideoFiles returns supported video files in the current directory.
-func findVideoFiles() ([]string, error) {
-	patterns := []string{"*.mp4", "*.mov", "*.mkv", "*.avi", "*.webm", "*.m4v"}
-	seen := make(map[string]struct{})
+// findVideoFiles returns video files in the current directory based on selected options.
+func findVideoFiles(includeVideos, includeMOV bool) ([]string, error) {
+	if !includeVideos && !includeMOV {
+		return []string{}, nil
+	}
+
+	allowedExtensions := map[string]struct{}{}
+	if includeVideos {
+		for _, ext := range []string{".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"} {
+			allowedExtensions[ext] = struct{}{}
+		}
+	} else if includeMOV {
+		allowedExtensions[".mov"] = struct{}{}
+	}
+
 	generatedOutputs := generatedOutputVideoNames()
 	var files []string
 
-	for _, pattern := range patterns {
-		matches, err := filepath.Glob(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list %s files: %v", pattern, err)
+	directoryEntries, err := os.ReadDir(".")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read current directory: %v", err)
+	}
+
+	for _, entry := range directoryEntries {
+		if entry.IsDir() {
+			continue
 		}
-		for _, match := range matches {
-			if _, isGeneratedOutput := generatedOutputs[strings.ToLower(filepath.Base(match))]; isGeneratedOutput {
-				continue
-			}
-			if _, ok := seen[match]; ok {
-				continue
-			}
-			seen[match] = struct{}{}
-			files = append(files, match)
+
+		name := entry.Name()
+		if _, isGeneratedOutput := generatedOutputs[strings.ToLower(filepath.Base(name))]; isGeneratedOutput {
+			continue
 		}
+
+		ext := strings.ToLower(filepath.Ext(name))
+		if _, isAllowed := allowedExtensions[ext]; !isAllowed {
+			continue
+		}
+
+		files = append(files, name)
 	}
 
 	sort.Strings(files)
@@ -774,7 +791,7 @@ func outputVideoFilename() string {
 // collectMediaInputs builds a sorted timeline from converted images and optional videos.
 // Default ordering is capture metadata time, with filename as deterministic fallback.
 // If orderByFilename is true, ordering uses filenames only.
-func collectMediaInputs(imageDuration float64, includeVideos, orderByFilename bool) ([]MediaInput, error) {
+func collectMediaInputs(imageDuration float64, includeVideos, includeMOV, orderByFilename bool) ([]MediaInput, error) {
 	imageFiles, err := filepath.Glob("converted/*.jpg")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list converted images: %v", err)
@@ -801,8 +818,8 @@ func collectMediaInputs(imageDuration float64, includeVideos, orderByFilename bo
 		})
 	}
 
-	if includeVideos {
-		videoFiles, err := findVideoFiles()
+	if includeVideos || includeMOV {
+		videoFiles, err := findVideoFiles(includeVideos, includeMOV)
 		if err != nil {
 			return nil, err
 		}
@@ -851,7 +868,7 @@ func collectMediaInputs(imageDuration float64, includeVideos, orderByFilename bo
 	})
 
 	if len(media) == 0 {
-		if includeVideos {
+		if includeVideos || includeMOV {
 			return nil, fmt.Errorf("no converted images or supported videos found")
 		}
 		return nil, fmt.Errorf("no converted images found in 'converted/' directory.\nPlease convert your images first using the image conversion feature")
@@ -1468,7 +1485,7 @@ func displayVideoInfo(outputFilename string, finalLength float64) {
 // If applyKenBurns is false, the images remain static.
 // If exifOverlay is true, camera info will be displayed in the footer with specified fontSize.
 // If fullHD is true, the output resolution will be Full HD (1920x1080) instead of 4K UHD (3840x2160).
-func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int, fitAudio, includeVideos, keepVideoAudio, fullHD bool, fps int, orderByFilename bool, kenBurnsMode string) {
+func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int, fitAudio, includeVideos, includeMOV, keepVideoAudio, fullHD bool, fps int, orderByFilename bool, kenBurnsMode string) {
 	// Set active resolution based on the fullHD flag.
 	if fullHD {
 		activeResolution = resolutionFullHD
@@ -1486,7 +1503,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	durationSec := float64(duration)
 	fadeSec := float64(fadeDuration)
 
-	mediaInputs, err := collectMediaInputs(durationSec, includeVideos, orderByFilename)
+	mediaInputs, err := collectMediaInputs(durationSec, includeVideos, includeMOV, orderByFilename)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}

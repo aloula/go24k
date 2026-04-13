@@ -600,7 +600,7 @@ func TestFindVideoFiles_ExcludesOutputVideo(t *testing.T) {
 		}
 	}
 
-	files, err := findVideoFiles()
+	files, err := findVideoFiles(true, false)
 	if err != nil {
 		t.Fatalf("findVideoFiles returned error: %v", err)
 	}
@@ -613,6 +613,43 @@ func TestFindVideoFiles_ExcludesOutputVideo(t *testing.T) {
 	}
 	if !strings.Contains(joined, "clip.mp4") || !strings.Contains(joined, "scene.mov") {
 		t.Fatalf("findVideoFiles missed expected inputs, got %v", files)
+	}
+}
+
+func TestFindVideoFiles_MOVOnly(t *testing.T) {
+	tempDir := t.TempDir()
+	oldWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd failed: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWd)
+	}()
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Chdir failed: %v", err)
+	}
+
+	for _, name := range []string{"clip.mp4", "scene.mov", "iphone.MOV", outputVideoUHD} {
+		if err := os.WriteFile(name, []byte("test"), 0644); err != nil {
+			t.Fatalf("WriteFile(%s) failed: %v", name, err)
+		}
+	}
+
+	files, err := findVideoFiles(false, true)
+	if err != nil {
+		t.Fatalf("findVideoFiles returned error: %v", err)
+	}
+
+	joined := strings.Join(files, ",")
+	if strings.Contains(joined, "clip.mp4") {
+		t.Fatalf("findVideoFiles should not include non-MOV files in MOV-only mode, got %v", files)
+	}
+	if !strings.Contains(joined, "scene.mov") || !strings.Contains(joined, "iphone.MOV") {
+		t.Fatalf("findVideoFiles should include .mov and .MOV files, got %v", files)
+	}
+	if strings.Contains(joined, outputVideoUHD) {
+		t.Fatalf("findVideoFiles should exclude generated outputs in MOV-only mode, got %v", files)
 	}
 }
 

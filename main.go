@@ -20,6 +20,7 @@ func main() {
 	fps := flag.Int("fps", 30, "Output framerate override: 30 or 60")
 	fitAudio := flag.Bool("fit-audio", false, "Auto-fit image and transition durations to fill the music length")
 	includeVideos := flag.Bool("include-videos", false, "Include supported video files together with pictures")
+	includeMOV := flag.Bool("include-mov", false, "Include MOV files together with pictures")
 	keepVideoAudio := flag.Bool("keep-video-audio", false, "Keep input video audio and blend it with MP3 background audio")
 	orderByFilename := flag.Bool("order-by-filename", false, "Order timeline by filename instead of metadata time")
 	fullHD := flag.Bool("fullhd", false, "Generate Full HD (1920x1080) video instead of 4K UHD (3840x2160)")
@@ -52,6 +53,7 @@ func main() {
 		fmt.Printf("  go24k -exif-overlay -overlay-font-size 48  # Large font overlay\n")
 		fmt.Printf("  go24k -fit-audio                         # Auto-fit duration to music length\n")
 		fmt.Printf("  go24k -include-videos                    # Mix videos with pictures in the timeline\n")
+		fmt.Printf("  go24k -include-mov                       # Mix MOV files with pictures in the timeline\n")
 		fmt.Printf("  go24k -include-videos -keep-video-audio  # Keep clip audio and blend it with MP3 audio\n")
 		fmt.Printf("  go24k -order-by-filename                 # Ignore metadata and sort timeline by filename\n")
 		fmt.Printf("  go24k -fullhd                              # Generate Full HD (1920x1080) video\n")
@@ -121,7 +123,7 @@ func main() {
 			}
 		}
 		// Pass the duration and transition values from the flags.
-		utils.GenerateVideo(*duration, *transition, applyKenBurns, *exifOverlay, *overlayFontSize, *fitAudio, *includeVideos, *keepVideoAudio, *fullHD, targetFPS, *orderByFilename, *kenBurnsMode)
+		utils.GenerateVideo(*duration, *transition, applyKenBurns, *exifOverlay, *overlayFontSize, *fitAudio, *includeVideos, *includeMOV, *keepVideoAudio, *fullHD, targetFPS, *orderByFilename, *kenBurnsMode)
 	}
 
 	// Report processing time (only if not convert-only since conversion already shows its time)
