@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/disintegration/imaging"
 )
 
 // createTestImage creates a simple test JPEG image
@@ -38,6 +40,32 @@ func createTestImage(t *testing.T, filename string, width, height int) {
 	err = jpeg.Encode(file, img, &jpeg.Options{Quality: 90})
 	if err != nil {
 		t.Fatalf("Failed to encode test image: %v", err)
+	}
+}
+
+func createWideMarkerImage(t *testing.T, filename string, width, height int) {
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			switch {
+			case x < width/4:
+				img.Set(x, y, color.RGBA{255, 0, 0, 255})
+			case x >= (width*3)/4:
+				img.Set(x, y, color.RGBA{0, 0, 255, 255})
+			default:
+				img.Set(x, y, color.RGBA{0, 255, 0, 255})
+			}
+		}
+	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		t.Fatalf("Failed to create marker image file: %v", err)
+	}
+	defer file.Close()
+
+	if err := jpeg.Encode(file, img, &jpeg.Options{Quality: 95}); err != nil {
+		t.Fatalf("Failed to encode marker image: %v", err)
 	}
 }
 
@@ -71,7 +99,7 @@ func setupTestDir(t *testing.T) string {
 func TestConvertImages_NoImages(t *testing.T) {
 	tempDir := setupTestDir(t)
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err == nil {
 		t.Error("Expected error when no images are present, but got nil")
 	}
@@ -94,7 +122,7 @@ func TestConvertImages_InsufficientImages(t *testing.T) {
 	// Create only one test image
 	createTestImage(t, "single.jpg", 1920, 1080)
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err == nil {
 		t.Error("Expected error when only one image is present, but got nil")
 	}
@@ -118,7 +146,7 @@ func TestConvertImages_SingleImage(t *testing.T) {
 	createTestImage(t, "test_image1.jpg", 4032, 3024) // Common phone camera resolution
 	createTestImage(t, "test_image2.jpg", 1920, 1080) // Standard HD resolution
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Errorf("ConvertImages failed: %v", err)
 	}
@@ -158,7 +186,7 @@ func TestConvertImages_MultipleImages(t *testing.T) {
 		createTestImage(t, img.name, img.width, img.height)
 	}
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Errorf("ConvertImages failed: %v", err)
 	}
@@ -188,13 +216,96 @@ func TestConvertImages_ExistingConvertedDirectory(t *testing.T) {
 	// Create a test image
 	createTestImage(t, "test_image.jpg", 1920, 1080)
 
-	err = ConvertImages()
+	err = ConvertImages(false)
 	if err != nil {
 		t.Errorf("ConvertImages should not fail when converted directory exists: %v", err)
 	}
 
 	// Should skip conversion and return early
 	// We can't easily test the skip message without capturing output
+}
+
+func TestConvertImages_RebuildsOnResolutionMismatch(t *testing.T) {
+	_ = setupTestDir(t)
+
+	createTestImage(t, "source1.jpg", 4032, 3024)
+	createTestImage(t, "source2.jpg", 1920, 1080)
+
+	if err := os.MkdirAll("converted", os.ModePerm); err != nil {
+		t.Fatalf("Failed to create converted directory: %v", err)
+	}
+
+	// Seed converted folder with a 4K-sized output to simulate prior UHD conversion.
+	createTestImage(t, filepath.Join("converted", "old_uhd.jpg"), 3840, 2160)
+
+	if err := ConvertImages(true); err != nil {
+		t.Fatalf("ConvertImages(true) failed: %v", err)
+	}
+
+	convertedFiles, err := filepath.Glob(filepath.Join("converted", "*.jpg"))
+	if err != nil {
+		t.Fatalf("Failed to list converted files: %v", err)
+	}
+
+	if len(convertedFiles) != 2 {
+		t.Fatalf("Expected 2 converted files after rebuild, got %d", len(convertedFiles))
+	}
+
+	for _, file := range convertedFiles {
+		img, openErr := imaging.Open(file, imaging.AutoOrientation(true))
+		if openErr != nil {
+			t.Fatalf("Failed to open converted file %s: %v", file, openErr)
+		}
+
+		b := img.Bounds()
+		if b.Dx() != 1920 || b.Dy() != 1080 {
+			t.Fatalf("Expected Full HD dimensions 1920x1080, got %dx%d for %s", b.Dx(), b.Dy(), file)
+		}
+
+		if !strings.HasSuffix(strings.ToLower(file), "_fhd.jpg") {
+			t.Fatalf("Expected Full HD converted file suffix _fhd.jpg, got %s", file)
+		}
+	}
+}
+
+func TestConvertImages_FullHD_WideImageNoSideCrop(t *testing.T) {
+	_ = setupTestDir(t)
+
+	createWideMarkerImage(t, "wide_1600x737.jpg", 1600, 737)
+	createTestImage(t, "companion.jpg", 1920, 1080)
+
+	if err := ConvertImages(true); err != nil {
+		t.Fatalf("ConvertImages(true) failed: %v", err)
+	}
+
+	convertedFiles, err := filepath.Glob(filepath.Join("converted", "*wide_1600x737*_fhd.jpg"))
+	if err != nil {
+		t.Fatalf("Failed to list converted files: %v", err)
+	}
+	if len(convertedFiles) != 1 {
+		t.Fatalf("Expected 1 converted wide marker image, got %d (%v)", len(convertedFiles), convertedFiles)
+	}
+
+	img, err := imaging.Open(convertedFiles[0], imaging.AutoOrientation(true))
+	if err != nil {
+		t.Fatalf("Failed to open converted marker image: %v", err)
+	}
+
+	b := img.Bounds()
+	if b.Dx() != 1920 || b.Dy() != 1080 {
+		t.Fatalf("Expected Full HD dimensions 1920x1080, got %dx%d", b.Dx(), b.Dy())
+	}
+
+	// For a no-crop fit, left edge should remain red and right edge blue.
+	left := color.RGBAModel.Convert(img.At(10, b.Dy()/2)).(color.RGBA)
+	right := color.RGBAModel.Convert(img.At(b.Dx()-10, b.Dy()/2)).(color.RGBA)
+
+	if left.R < 180 || left.G > 80 || left.B > 80 {
+		t.Fatalf("Expected left edge to remain red-ish (no side crop), got RGBA(%d,%d,%d,%d)", left.R, left.G, left.B, left.A)
+	}
+	if right.B < 180 || right.R > 80 || right.G > 80 {
+		t.Fatalf("Expected right edge to remain blue-ish (no side crop), got RGBA(%d,%d,%d,%d)", right.R, right.G, right.B, right.A)
+	}
 }
 
 // Helper function to check if string contains substring
@@ -224,7 +335,7 @@ func TestProcessSingleImage_Integration(t *testing.T) {
 	createTestImage(t, testImageName1, 2000, 1500)
 	createTestImage(t, testImageName2, 1920, 1080)
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Fatalf("ConvertImages failed: %v", err)
 	}
@@ -255,7 +366,7 @@ func TestConvertImages_ErrorCases(t *testing.T) {
 		_, _ = corruptedFile.WriteString("this is not a jpeg file") // Ignore error for test data
 		corruptedFile.Close()
 
-		err = ConvertImages()
+		err = ConvertImages(false)
 		if err == nil {
 			t.Error("Expected error for corrupted JPEG, but got nil")
 		}
@@ -279,7 +390,7 @@ func TestConvertImages_ErrorCases(t *testing.T) {
 		os.RemoveAll("converted")
 
 		// This should work normally since we removed the readonly dir
-		err := ConvertImages()
+		err := ConvertImages(false)
 		if err != nil {
 			t.Errorf("ConvertImages should work after removing readonly dir: %v", err)
 		}
@@ -374,7 +485,7 @@ func TestConvertImages_DifferentResolutions(t *testing.T) {
 			createTestImage(t, filename1, tc.width, tc.height)
 			createTestImage(t, filename2, 1920, 1080) // Standard resolution companion
 
-			err := ConvertImages()
+			err := ConvertImages(false)
 			if err != nil {
 				t.Errorf("Failed to convert %s image: %v", tc.name, err)
 			}
@@ -401,7 +512,7 @@ func TestConvertImages_FilePermissions(t *testing.T) {
 	createTestImage(t, "perm_test2.jpg", 1280, 720)
 
 	// Test normal conversion first
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Errorf("Normal conversion should work: %v", err)
 	}
@@ -432,7 +543,7 @@ func TestConvertImages_ProgressBarPaths(t *testing.T) {
 		createTestImage(t, filename, 1920, 1080)
 	}
 
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Errorf("ConvertImages failed with mixed filename lengths: %v", err)
 	}
@@ -483,7 +594,7 @@ func BenchmarkConvertImages_SingleImage(b *testing.B) {
 
 		b.StartTimer()
 
-		err := ConvertImages()
+		err := ConvertImages(false)
 		if err != nil {
 			b.Errorf("ConvertImages failed: %v", err)
 		}
@@ -528,7 +639,7 @@ func TestConvertImages_OutputFormat(t *testing.T) {
 	createTestImage(t, "format_test2.jpg", 1920, 1080)
 
 	// Run conversion
-	err := ConvertImages()
+	err := ConvertImages(false)
 	if err != nil {
 		t.Fatalf("ConvertImages failed: %v", err)
 	}
@@ -589,6 +700,12 @@ func TestExtractCameraInfo(t *testing.T) {
 }
 
 func TestFormatCameraInfoOverlay(t *testing.T) {
+	oldResolution := activeResolution
+	defer func() {
+		activeResolution = oldResolution
+	}()
+	activeResolution = resolution4K
+
 	tests := []struct {
 		name     string
 		info     *CameraInfo
@@ -620,7 +737,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken:    "15.08.2024",
 			},
 			fontSize: 36,
-			expected: ",drawtext=text=Canon\\ -\\ EOS\\ R5\\ -\\ 50mm\\ -\\ f.2.8\\ -\\ ISO\\ 400\\ -\\ 15.08.2024:fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=Canon\\ -\\ EOS\\ R5\\ -\\ 50mm\\ -\\ f\\/2.8\\ -\\ 1\\/125s\\ -\\ ISO\\ 400\\ -\\ 15.08.2024:fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
 			name: "Camera with large font",
@@ -633,7 +750,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken:   "22.06.2024",
 			},
 			fontSize: 48,
-			expected: ",drawtext=text=Sony\\ -\\ A7R\\ IV\\ -\\ 85mm\\ -\\ f.1.4\\ -\\ ISO\\ 800\\ -\\ 22.06.2024:fontsize=48:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=Sony\\ -\\ A7R\\ IV\\ -\\ 85mm\\ -\\ f\\/1.4\\ -\\ ISO\\ 800\\ -\\ 22.06.2024:fontsize=48:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
 			name: "Basic camera info",
@@ -643,7 +760,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken: "10.03.2024",
 			},
 			fontSize: 24,
-			expected: ",drawtext=text=Nikon\\ -\\ D850\\ -\\ 10.03.2024:fontsize=24:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=Nikon\\ -\\ D850\\ -\\ 10.03.2024:fontsize=24:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
 			name: "Camera with partial info",
@@ -655,18 +772,26 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken:   "10.03.2024",
 			},
 			fontSize: 32,
-			expected: ",drawtext=text=Fujifilm\\ -\\ X-T4\\ -\\ 35mm\\ -\\ f.2.0\\ -\\ 10.03.2024:fontsize=32:fontcolor=white:x=(w-tw)/2:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=Fujifilm\\ -\\ X-T4\\ -\\ 35mm\\ -\\ f\\/2.0\\ -\\ 10.03.2024:fontsize=32:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FormatCameraInfoOverlay(tt.info, tt.fontSize)
+			result := FormatCameraInfoOverlay(tt.info, tt.fontSize, 0)
 			if result != tt.expected {
 				t.Errorf("Expected %q, got %q", tt.expected, result)
 			}
 		})
 	}
+
+	t.Run("FullHD uses higher footer by 10px", func(t *testing.T) {
+		activeResolution = resolutionFullHD
+		result := FormatCameraInfoOverlay(&CameraInfo{Make: "Canon", Model: "R6", DateTaken: "01.01.2024"}, 36, 0)
+		if !strings.Contains(result, "y=h-th-30") {
+			t.Errorf("Expected FullHD overlay position y=h-th-30, got %q", result)
+		}
+	})
 }
 
 func TestGetOriginalFilename(t *testing.T) {
@@ -684,9 +809,10 @@ func TestGetOriginalFilename(t *testing.T) {
 	}
 
 	t.Run("Non-existent converted file", func(t *testing.T) {
+		// "nonexistent" is not a timestamp, so no fallback should be returned
 		result := GetOriginalFilename("converted/nonexistent_uhd.jpg")
 		if result != "" {
-			t.Errorf("Expected empty string for non-existent file, got %q", result)
+			t.Errorf("Expected empty string for non-timestamp filename, got %q", result)
 		}
 	})
 
@@ -695,9 +821,32 @@ func TestGetOriginalFilename(t *testing.T) {
 		os.MkdirAll("converted", 0755)
 		createTestImage(t, "converted/20230101_120000_uhd.jpg", 100, 100)
 
+		// When no originals exist to match, falls back to timestamp pseudo-filename
 		result := GetOriginalFilename("converted/20230101_120000_uhd.jpg")
-		if result != "" {
-			t.Errorf("Expected empty string when no original files, got %q", result)
+		if result != "20230101_120000.jpg" {
+			t.Errorf("Expected timestamp fallback %q, got %q", "20230101_120000.jpg", result)
+		}
+	})
+
+	t.Run("No original files available with FullHD suffix", func(t *testing.T) {
+		// Create converted directory and file
+		os.MkdirAll("converted", 0755)
+		createTestImage(t, "converted/20230101_120000_fhd.jpg", 100, 100)
+
+		// When no originals exist to match, falls back to timestamp pseudo-filename
+		result := GetOriginalFilename("converted/20230101_120000_fhd.jpg")
+		if result != "20230101_120000.jpg" {
+			t.Errorf("Expected timestamp fallback %q, got %q", "20230101_120000.jpg", result)
+		}
+	})
+
+	t.Run("Fallback to timestamp when original not found", func(t *testing.T) {
+		// When original file can't be found by timestamp matching,
+		// GetOriginalFilename should return a synthetic filename based on the timestamp
+		// to preserve alphabetical ordering
+		result := GetOriginalFilename("converted/20230815_093045_uhd.jpg")
+		if result != "20230815_093045.jpg" {
+			t.Errorf("Expected fallback timestamp-based filename, got %q", result)
 		}
 	})
 

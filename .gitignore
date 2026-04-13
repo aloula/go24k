@@ -3,9 +3,6 @@
 *.mp4
 *.mp3
 
-# Exceções - arquivos de teste devem ser versionados
-!test_image*.jpg
-!test_audio*.mp3
 
 # Diretórios gerados
 /converted/
@@ -25,6 +22,8 @@ coverage.html
 # Arquivos temporários
 *.tmp
 *.temp
+audio_concat.txt
+filter_complex.txt
 
 # Logs
 *.log

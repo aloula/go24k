@@ -39,6 +39,34 @@ func TestMainFlags(t *testing.T) {
 			name: "Debug mode",
 			args: []string{"go24k", "--debug"},
 		},
+		{
+			name: "Include videos",
+			args: []string{"go24k", "-include-videos"},
+		},
+		{
+			name: "Include MOV",
+			args: []string{"go24k", "-include-mov"},
+		},
+		{
+			name: "Keep video audio",
+			args: []string{"go24k", "-keep-video-audio"},
+		},
+		{
+			name: "Order by filename",
+			args: []string{"go24k", "-order-by-filename"},
+		},
+		{
+			name: "Ken Burns high mode",
+			args: []string{"go24k", "-kenburns-mode", "high"},
+		},
+		{
+			name: "Ken Burns low mode",
+			args: []string{"go24k", "-kenburns-mode", "low"},
+		},
+		{
+			name: "Ken Burns medium mode",
+			args: []string{"go24k", "-kenburns-mode", "medium"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -52,6 +80,11 @@ func TestMainFlags(t *testing.T) {
 			duration := flag.Int("d", 5, "Duration per image in seconds")
 			transition := flag.Int("t", 1, "Transition (fade) duration in seconds")
 			debug := flag.Bool("debug", false, "Show environment detection and optimization info")
+			includeVideos := flag.Bool("include-videos", false, "Include supported video files together with pictures")
+			includeMOV := flag.Bool("include-mov", false, "Include MOV files together with pictures")
+			keepVideoAudio := flag.Bool("keep-video-audio", false, "Keep input video audio and blend it with MP3 background audio")
+			orderByFilename := flag.Bool("order-by-filename", false, "Order timeline by filename instead of metadata time")
+			kenBurnsMode := flag.String("kenburns-mode", "high", "Ken Burns mode intensity: low, medium, or high")
 
 			// Parse the test arguments
 			os.Args = tt.args
@@ -85,6 +118,34 @@ func TestMainFlags(t *testing.T) {
 			case "Debug mode":
 				if !*debug {
 					t.Error("debug flag should be true")
+				}
+			case "Include videos":
+				if !*includeVideos {
+					t.Error("include-videos flag should be true")
+				}
+			case "Include MOV":
+				if !*includeMOV {
+					t.Error("include-mov flag should be true")
+				}
+			case "Keep video audio":
+				if !*keepVideoAudio {
+					t.Error("keep-video-audio flag should be true")
+				}
+			case "Order by filename":
+				if !*orderByFilename {
+					t.Error("order-by-filename flag should be true")
+				}
+			case "Ken Burns high mode":
+				if *kenBurnsMode != "high" {
+					t.Errorf("kenburns-mode should be high, got %s", *kenBurnsMode)
+				}
+			case "Ken Burns low mode":
+				if *kenBurnsMode != "low" {
+					t.Errorf("kenburns-mode should be low, got %s", *kenBurnsMode)
+				}
+			case "Ken Burns medium mode":
+				if *kenBurnsMode != "medium" {
+					t.Errorf("kenburns-mode should be medium, got %s", *kenBurnsMode)
 				}
 			}
 		})

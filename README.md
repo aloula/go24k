@@ -1,400 +1,168 @@
 # Go24K
 
-Utilitário pessoal para criar vídeos 4K a partir de imagens JPEG com efeitos Ken Burns e transições suaves.
+Ferramenta em Go para montar vídeos a partir de fotos JPEG, com suporte a 4K ou Full HD, Ken Burns, transições, música e mistura opcional de vídeos na mesma timeline.
 
-## O que faz
+## Recursos
 
-- Converte imagens JPEG para 4K UHD (3840x2160) com upscaling inteligente
-- Cria vídeos com efeito Ken Burns (zoom/pan suave) com 9 variações
-- Adiciona música de fundo automática (se houver MP3)
-- Transições crossfade entre imagens com duração configurável
-- Usa timestamps EXIF para ordenação cronológica automática
-- **NOVO**: Exibe detalhes técnicos do vídeo gerado (tamanho, bitrate, framerate)
-
-## Aceleração de Hardware 🚀
-
-Detecta automaticamente e usa a melhor opção disponível com **detecção real de funcionalidade** (não apenas presença):
-
-### 🏆 **Hardware Encoders (Ordem de Prioridade)**
-- **NVIDIA NVENC**: 5-10x mais rápido (GPUs GeForce GTX 10+ / RTX)
-  - Bitrate: ~15 Mbps para 4K, qualidade excepcional
-  - **NOVO**: Evita falsos positivos em WSL
-- **Apple VideoToolbox**: 3-8x mais rápido (Apple Silicon M1/M2/M3/M4, macOS)
-  - Otimizado para processadores Apple com Neural Engine
-- **Windows Media Foundation**: 3-5x mais rápido (Windows 10/11)
-  - **OTIMIZADO**: Snapdragon X Plus agora atinge 20+ Mbps (antes <10 Mbps)
-  - Excelente para processadores Intel/AMD/ARM no Windows
-- **Intel Quick Sync (QSV)**: 2-4x mais rápido (iGPU Intel 7ª geração+)
-  - Disponível em processadores Intel Core com gráficos integrados
-- **AMD AMF**: 2-4x mais rápido (GPUs/APUs AMD Radeon)
-  - Suporte para placas discretas e APUs AMD
-- **Linux VAAPI**: 2-4x mais rápido (Linux com drivers VAAPI)
-  - Funciona com Intel iGPU e algumas GPUs AMD no Linux
-
-### 💻 **Software Fallback**
-- **CPU libx264**: Fallback universal, funciona em qualquer sistema
-  - CRF 21 para alta qualidade com compressão eficiente
-
-## 📷 Legenda EXIF Automática
-
-### 🆕 **Nova Funcionalidade: Overlay de Informações da Câmera**
-
-O Go24K agora pode extrair automaticamente informações técnicas das fotos e exibi-las como legenda centralizada no rodapé do vídeo.
-
-#### **Informações Exibidas:**
-- **Câmera**: Fabricante e modelo (ex: "Canon EOS R5")
-- **Lente**: Modelo da lente (ex: "RF 24-70mm F2.8 L IS USM")
-- **Configurações técnicas**:
-  - **Distância focal**: ex: "50mm"
-  - **Abertura**: ex: "f/2.8"
-  - **Velocidade do obturador**: ex: "1/125s"
-  - **ISO**: ex: "ISO 400"
-
-#### **Como Usar:**
-```bash
-# Habilitar legenda EXIF (desabilitada por padrão)
-./go24k -exif-overlay
-
-# Combinar com outras opções
-./go24k -exif-overlay -d 8 -t 2
-```
-
-#### **Exemplo de Legenda:**
-```
-Canon - EOS R5 - 50mm - f/2.8 - ISO 400 - 15.08.2024
-```
-
-#### **Formato de Overlay:**
-- **Separadores**: Dashes (-) para compatibilidade com Windows/FFmpeg
-- **Data da foto**: Formato DD.MM.YYYY extraído dos dados EXIF
-- **Layout compacto**: Informações em linha única com posicionamento configurável
-
-#### **Personalização:**
-```bash
-# Configurar tamanho da fonte (padrão: 36px)
-./go24k -exif-overlay -overlay-font-size 48
-
-# Fonte menor para imagens com muito texto
-./go24k -exif-overlay -overlay-font-size 24
-
-# Fonte grande para visualização em TV
-./go24k -exif-overlay -overlay-font-size 60
-```
-
-#### **Notas Técnicas:**
-- ✅ **Dados extraídos dos arquivos originais**: As informações vêm dos arquivos JPEG originais antes da conversão
-- ✅ **Fallback inteligente**: Se alguns dados EXIF não estiverem disponíveis, exibe apenas os disponíveis
-- ✅ **Posicionamento fixo no rodapé**: Centralizado com margem automática para máxima legibilidade
-- ✅ **Sem impacto na performance**: Extração rápida durante o processamento
+- Converte JPEG para um canvas padronizado em 4K ou Full HD.
+- Gera vídeo com Ken Burns, crossfade e fade de entrada e saída.
+- Pode incluir vídeos na mesma timeline sem distorcer o enquadramento.
+- Usa EXIF e metadados para ordenar cronologicamente, com fallback por nome.
+- Pode manter o áudio dos vídeos e misturá-lo com MP3 de fundo.
+- Mostra detalhes técnicos do vídeo gerado ao final.
+- Detecta automaticamente aceleração por hardware e cai para CPU quando necessário.
 
 ## Requisitos
 
-- **FFmpeg** 4.0+ instalado no sistema (com `ffprobe`)
-- **Go 1.25+** (apenas para compilar do código-fonte)
-- **Drivers atualizados** para melhor aceleração de hardware
+- FFmpeg com ffprobe no PATH.
+- Go 1.25+ apenas para compilar do código-fonte.
 
 ## Instalação
 
-1. **Instalar FFmpeg**: https://ffmpeg.org/download.html
-2. **Compilar**:
-   ```bash
-   git clone https://github.com/aloula/go24k.git
-   cd go24k
-   go build -o go24k
-   chmod +x go24k  # Linux/macOS apenas
-   ```
-
-## Como Usar
-
-1. **Colocar imagens JPEG** no diretório atual
-2. **Opcional**: Adicionar arquivo MP3 para música de fundo
-3. **Executar**:
-   ```bash
-   ./go24k
-   ```
-
-### Opções
-
 ```bash
-./go24k [OPÇÕES]
+git clone https://github.com/aloula/go24k.git
+cd go24k
+go build -o go24k
+chmod +x go24k
 ```
 
-#### Parâmetros Principais
-- `-d <segundos>` - Duração por imagem (padrão: 5)
-- `-t <segundos>` - Duração da transição crossfade (padrão: 1)
-- `-static` - Desabilita efeito Ken Burns (imagens estáticas)
-- `-convert-only` - Apenas converte imagens, sem gerar vídeo
+## Uso rápido
 
-#### Utilitários
-- `--debug` - **NOVO**: Mostra detecção completa de hardware e configurações FFmpeg
-- `--exif-overlay` - **NOVO**: Adiciona legenda com informações da câmera (rodapé centralizado)
-- `--overlay-font-size <pixels>` - **NOVO**: Tamanho da fonte do overlay (padrão: 36)
-- `--help` - Exibe ajuda com todas as opções
+Coloque pelo menos duas imagens JPG no diretório atual. Se quiser, adicione também arquivos MP3 e vídeos suportados.
 
-**Exemplos:**
 ```bash
-# Padrão (5s por imagem, 1s transição, Ken Burns ativo)
+./go24k
+```
+
+## Interface gráfica (Fyne)
+
+Também é possível usar uma interface desktop para escolher pasta e opções sem precisar decorar flags.
+
+```bash
+go build -tags fyne -o go24k
+./go24k -gui
+```
+
+Observação: builds padrão (sem `-tags fyne`) continuam funcionando para CLI e cross-compilation, mas não incluem a GUI.
+
+A GUI permite:
+
+- Selecionar a pasta com imagens, músicas e vídeos.
+- Configurar duração, transição, FPS e estilo de movimento (pan + zoom em low/medium/high).
+- Ativar opções como fit-audio, include-videos, include-mov, keep-video-audio, fullhd e exif-overlay.
+- Desabilitar movimento com `-static` (na GUI, isso desativa o seletor de estilo de movimento).
+- Executar a geração e acompanhar log/progresso em tempo real.
+
+Saída padrão:
+
+- converted/: imagens convertidas
+- video_uhd.mp4: vídeo final quando a saída é 4K UHD (padrão)
+- video_fhd.mp4: vídeo final quando a saída é Full HD (`-fullhd`)
+
+## Flags principais
+
+- -d <segundos>: duração por imagem. Padrão: 5.
+- -t <segundos>: duração da transição. Padrão: 1.
+- -static: desabilita Ken Burns.
+- -fps <30|60>: força o framerate de saída.
+- -fullhd: gera em 1920x1080 em vez de 3840x2160.
+- -convert-only: apenas converte imagens.
+- -fit-audio: ajusta as imagens ao tempo da música quando aplicável.
+- -include-videos: inclui mp4, mov, mkv, avi, webm e m4v na timeline.
+- -include-mov: inclui apenas arquivos mov/MOV na timeline.
+- -keep-video-audio: preserva áudio dos vídeos de entrada.
+- -order-by-filename: ignora metadata e ordena por nome.
+- -kenburns-mode <low|medium|high>: escolhe a intensidade do pan + zoom.
+- -exif-overlay: adiciona legenda com dados da câmera.
+- -overlay-font-size <pixels>: tamanho da fonte do overlay. Padrão: 36.
+- --debug: mostra detecção de hardware e parâmetros do FFmpeg.
+
+## Exemplos
+
+```bash
+# Padrão
 ./go24k
 
-# Rápido (2s por imagem, sem Ken Burns)  
-./go24k -d 2 -static
+# Imagens estáticas com transição maior
+./go24k -static -d 6 -t 2
 
-# Longo com transições suaves (8s por imagem, 2s transição)
-./go24k -d 8 -t 2
+# Full HD a 60 fps
+./go24k -fullhd -fps 60
 
-# Apenas converter imagens para 4K
-./go24k -convert-only
+# Misturar fotos e vídeos
+./go24k -include-videos
 
-# Com legenda de informações da câmera (rodapé centralizado, fonte 36px)
-./go24k -exif-overlay
+# Incluir apenas arquivos MOV
+./go24k -include-mov
 
-# Overlay com fonte grande para TVs
+# Misturar áudio dos vídeos com o MP3 de fundo
+./go24k -include-videos -keep-video-audio
+
+# Ordenar pelo nome do arquivo
+./go24k -order-by-filename
+
+# Overlay EXIF
 ./go24k -exif-overlay -overlay-font-size 48
 
-# Overlay com fonte pequena para telas menores
-./go24k -exif-overlay -overlay-font-size 24
+# Ajustar ao tempo da música
+./go24k -fit-audio
 
-# Configuração personalizada com duração longa
-./go24k -exif-overlay -overlay-font-size 32 -d 6
-
-# Verificar hardware disponível  
+# Diagnóstico de hardware
 ./go24k --debug
+
+# Abrir interface gráfica
+./go24k -gui
 ```
 
-## Compilação
+## EXIF overlay
 
-### Build Atual
+Quando -exif-overlay está ativo, o programa tenta exibir fabricante, câmera, lente, distância focal, abertura, obturador, ISO e data de cada foto. Se algum campo não existir, ele simplesmente omite o que faltar.
+
+Exemplo:
+
+```text
+Canon - EOS R5 - 50mm - f/2.8 - 1/125s - ISO 400 - 15/08/2024
+```
+
+## Build e desenvolvimento
+
+Compilação local:
+
 ```bash
-# Plataforma atual
 go build -o go24k
 ```
 
-### Cross-Platform Build
-```bash
-# Builds específicos
-GOOS=linux GOARCH=amd64 go build -o go24k-linux
-GOOS=darwin GOARCH=arm64 go build -o go24k-macos  
-GOOS=windows GOARCH=amd64 go build -o go24k.exe
+Builds para múltiplas plataformas:
 
-# Todas as plataformas automaticamente
+```bash
 ./build.sh
 ```
 
-### 📦 **Builds Automáticos Disponíveis**
-O projeto gera automaticamente executáveis para:
-- **Linux**: AMD64 + ARM64
-- **macOS**: Intel + Apple Silicon  
-- **Windows**: AMD64 + ARM64
+O script gera binários CLI para Linux/Windows/macOS e também tenta gerar binários GUI em `builds/gui/<goos>/<goarch>/go24k-gui` (ou `.exe` no Windows) quando os toolchains de cross-compilation da plataforma estão disponíveis.
 
-Arquivos gerados em `builds/`:
-```
-builds/
-├── linux/
-│   ├── amd64/go24k     # Intel/AMD Linux
-│   └── arm64/go24k     # ARM Linux (Raspberry Pi, etc.)
-├── macos/
-│   ├── intel/go24k     # Intel Mac
-│   └── arm/go24k       # Apple Silicon (M1/M2/M3/M4)
-└── windows/
-    ├── amd64/go24k.exe # Intel/AMD Windows
-    └── arm64/go24k.exe # ARM Windows (Snapdragon)
-```
-
-## Saída
-
-### Arquivos Gerados
-- **`converted/`** - Imagens processadas em 4K UHD com upscaling inteligente
-- **`video.mp4`** - Vídeo final 4K UHD (H.264, 30fps, alta qualidade)
-
-### 📊 **NOVO: Informações Técnicas Detalhadas** 
-
-Ao final da geração, o Go24K exibe automaticamente os detalhes técnicos do vídeo:
-
-```
-📹 Video Details:
-File Size: 45.7 MB
-Duration: 32.5 seconds  
-Video Bitrate: 18.4 Mbps
-Audio Bitrate: 128 kbps
-Framerate: 30 fps
-Resolution: 4K UHD (3840x2160)
-Total time: 8.3 sec.
-```
-
-#### O que significam esses números:
-- **File Size**: Tamanho total do arquivo de vídeo
-- **Video Bitrate**: Taxa de bits real do vídeo (importante para qualidade)
-  - NVENC: ~15-18 Mbps
-  - Snapdragon X Plus: ~20+ Mbps (otimizado)
-  - CPU: ~12-15 Mbps
-- **Audio Bitrate**: Taxa do áudio (128-320 kbps) ou "No audio"
-- **Duration**: Tempo exato calculado do vídeo final
-- **Total time**: Tempo de processamento (conversão + geração)
-
-## Problemas Comuns
-
-### 🔧 **Instalação e Execução**
-- **FFmpeg não encontrado**: Instalar FFmpeg e verificar se está no PATH
-  ```bash
-  # Verificar instalação
-  ffmpeg -version
-  ffprobe -version
-  ```
-- **Sem imagens**: Colocar arquivos `.jpg` no diretório atual (mínimo 2 imagens)
-- **Permissão negada**: `chmod +x go24k` (Linux/macOS)
-- **"No such file or directory"**: Verificar se o executável foi compilado corretamente
-
-### ⚡ **Aceleração de Hardware**
-- **Sem aceleração detectada**: 
-  - Atualizar drivers de vídeo
-  - Verificar se FFmpeg foi compilado com suporte aos codecs de hardware
-  - Usar `./go24k --debug` para diagnosticar
-- **WSL detectando NVENC incorretamente**: 
-  - ✅ **CORRIGIDO**: Agora usa detecção real de funcionalidade
-- **Bitrate baixo no Snapdragon**: 
-  - ✅ **CORRIGIDO**: Otimizado para 20+ Mbps
-
-### 📊 **Qualidade de Vídeo**
-- **Vídeo com qualidade baixa**: Verificar se aceleração de hardware está funcionando
-- **Arquivo muito grande**: Usar `-static` para desabilitar Ken Burns
-- **Sem áudio**: Verificar se há arquivo MP3 no diretório
-
-## Desenvolvimento
-
-### Qualidade de Código 🏆
-
-O projeto mantém **altos padrões de qualidade** com:
-- ✅ **golangci-lint** moderno com **revive** + **stylecheck**
-- ✅ **42.1% cobertura de testes** com casos edge-cases
-- ✅ **Complexidade baixa** (todas funções < 25 ciclos)
-- ✅ **0 problemas de linting** detectados
-- ✅ **Refatoração modular** para melhor manutenibilidade
-
-### Executar Testes
-
-O projeto inclui uma suite completa de testes:
+Testes e checks mais usados:
 
 ```bash
-# Todos os testes
 ./test.sh
-
-# Apenas testes unitários  
 ./test.sh unit
-
-# Apenas testes de integração
 ./test.sh integration
-
-# Benchmarks de performance
-./test.sh bench
-
-# Análise estática moderna (vet, fmt, golangci-lint)
 ./test.sh lint
 
-# Teste de compilação cruzada
-./test.sh build
-
-# Limpar arquivos temporários
-./test.sh clean
+make build
+make build-all
+make test-unit
+make test-integration
+make lint
 ```
 
-### Cobertura de Testes
+## Problemas comuns
 
-- **Testes Unitários**: Funções de conversão de imagens e geração de vídeo
-- **Testes de Integração**: Workflow completo com FFmpeg
-- **Benchmarks**: Performance de conversão de imagens
-- **Análise Estática**: Qualidade e formatação do código
-
-O relatório de cobertura é gerado automaticamente em `coverage.html`.
-
-## 🆕 Novidades Recentes
-
-### v2.1.0 - Novembro 2025
-
-#### 🎯 **Melhorias de Qualidade**
-- ✅ **Resolução de problemas do linter**: 0 issues detectados
-- ✅ **Refatoração da função `getVideoDetails()`**: Complexidade reduzida de 44 → <25
-- ✅ **Constante `resolution4K`**: Substituição de 20+ strings hardcoded
-- ✅ **golangci-lint moderno**: Upgrade para revive + stylecheck (substituto do golint deprecado)
-
-#### 🚀 **Otimizações de Performance**  
-- ✅ **Snapdragon X Plus**: Bitrate otimizado para 20+ Mbps (antes <10 Mbps)
-- ✅ **Detecção de hardware melhorada**: Evita falsos positivos em WSL
-- ✅ **Configurações agressivas**: Media Foundation com 25M max bitrate
-
-#### 📊 **Funcionalidades Novas**
-- ✅ **Legenda EXIF automática**: Overlay no rodapé direito com informações da câmera
-  - Modelo da câmera e fabricante
-  - Modelo da lente (se disponível)
-  - Distância focal, abertura, velocidade do obturador, ISO
-- ✅ **Detalhes técnicos do vídeo**: Exibição automática de tamanho, bitrate, framerate
-- ✅ **Interface melhorada**: Spinner reposicionado, formato de progresso mais limpo
-- ✅ **Ambiente de desenvolvimento**: VS Code configurado para testes de integração
-
-#### 🧪 **Testes e Validação**
-- ✅ **Suite de testes atualizada**: 27 testes unitários + 12 integração
-- ✅ **42.1% cobertura**: Incluindo todas as novas funcionalidades
-- ✅ **Go 1.25.4**: Upgrade da versão com compatibilidade total
-
-## 📈 Performance e Benchmarks
-
-### Tempos Típicos (5 imagens, 5s cada, Ken Burns ativo)
-
-| Hardware | Resolução | Tempo Total | Speedup | Bitrate |
-|----------|-----------|-------------|---------|---------|
-| **NVIDIA RTX 4090** | 4K | ~8-12s | 10x | ~18 Mbps |
-| **Apple M3 Pro** | 4K | ~15-20s | 6x | ~16 Mbps |
-| **Snapdragon X Plus** | 4K | ~20-25s | 4x | ~22 Mbps |
-| **Intel i7 + QSV** | 4K | ~25-35s | 3x | ~15 Mbps |
-| **AMD Ryzen + CPU** | 4K | ~60-90s | 1x | ~14 Mbps |
-
-### Otimizações Implementadas
-
-- **NVENC**: CQ 21 para qualidade consistente
-- **VideoToolbox**: Preset balanced para speed/quality  
-- **Media Foundation**: 20M target + 25M max bitrate (Snapdragon)
-- **QSV**: Preset medium com CQ 21
-- **CPU**: Preset slow + CRF 21 para máxima qualidade
-
-### Comandos Make Disponíveis
-
-```bash
-# Desenvolvimento rápido
-make dev          # fmt + lint + test-unit
-make check        # Verificação pré-commit
-
-# Compilação
-make build        # Compilar para plataforma atual
-make build-all    # Compilar para todas as plataformas
-
-# Testes específicos
-make test-unit         # Apenas testes unitários (27 testes, 42.1% cobertura)
-make test-integration  # Apenas testes de integração (12 testes)
-make bench             # Benchmarks de performance
-make coverage          # Relatório HTML de cobertura
-
-# Análise de Código  
-make lint         # golangci-lint básico
-make lint-modern  # golangci-lint moderno (revive + stylecheck)
-
-# Utilitários
-make clean        # Limpar arquivos gerados
-make install      # Instalar no sistema
-make help         # Ver todos os comandos
-```
-
-### Estrutura dos Testes
-
-```
-├── utils/
-│   ├── convertImages_test.go    # Testes de conversão de imagens
-│   └── generateVideo_test.go    # Testes de geração de vídeo
-├── main_test.go                 # Testes da função main
-├── integration_test.go          # Testes de integração
-├── test.sh                     # Script de execução de testes
-├── Makefile                    # Comandos de desenvolvimento
-└── .github/workflows/ci.yml    # CI/CD automático
-```
+- FFmpeg não encontrado: confirme ffmpeg -version e ffprobe -version.
+- Sem imagens suficientes: são necessárias pelo menos duas imagens ou mídias na timeline.
+- Sem aceleração por hardware: use --debug e verifique drivers e suporte do FFmpeg.
+- Sem áudio no resultado: confirme a presença de MP3 ou use -keep-video-audio.
+- GUI não abre: compile com `-tags fyne` e rode `./go24k -gui`.
 
 ## Licença
 
-MIT License
+MIT

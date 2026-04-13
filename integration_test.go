@@ -107,7 +107,7 @@ func TestIntegrationFullWorkflow(t *testing.T) {
 		}
 
 		// Verify video was created
-		videoPath := filepath.Join(tempDir, "video.mp4")
+		videoPath := filepath.Join(tempDir, "video_uhd.mp4")
 		if _, err := os.Stat(videoPath); os.IsNotExist(err) {
 			t.Error("Video file not created")
 		} else {
@@ -158,7 +158,7 @@ func TestIntegrationStaticMode(t *testing.T) {
 	}
 
 	// Verify video was created
-	if _, err := os.Stat("video.mp4"); os.IsNotExist(err) {
+	if _, err := os.Stat("video_uhd.mp4"); os.IsNotExist(err) {
 		t.Error("Video file not created in static mode")
 	}
 
@@ -303,7 +303,7 @@ func BenchmarkIntegrationConversion(b *testing.B) {
 
 		b.StartTimer()
 
-		err := utils.ConvertImages()
+		err := utils.ConvertImages(false)
 		if err != nil {
 			b.Errorf("Benchmark conversion failed: %v", err)
 		}
