@@ -33,6 +33,10 @@ const (
 	guiMotionLabelLow    = "Pan + zoom (low)"
 	guiMotionLabelMedium = "Pan + zoom (medium)"
 	guiMotionLabelHigh   = "Pan + zoom (high)"
+
+	guiOrderModeMetadata = "Metadata"
+	guiOrderModeFilename = "Filename"
+	guiOrderModeRandom   = "Random"
 )
 
 type guiOptions struct {
@@ -46,7 +50,7 @@ type guiOptions struct {
 	includeVideos   bool
 	includeMOV      bool
 	keepVideoAudio  bool
-	orderByFilename bool
+	orderMode       string
 	fullHD          bool
 	kenBurnsMode    string
 	exifOverlay     bool
@@ -114,6 +118,21 @@ func motionStyleToKenBurnsMode(label string) string {
 	}
 }
 
+func orderModeOptions() []string {
+	return []string{guiOrderModeMetadata, guiOrderModeFilename, guiOrderModeRandom}
+}
+
+func orderModeToFlag(label string) string {
+	switch label {
+	case guiOrderModeFilename:
+		return "filename"
+	case guiOrderModeRandom:
+		return "random"
+	default:
+		return "metadata"
+	}
+}
+
 func formatElapsedDuration(elapsed time.Duration) string {
 	totalSeconds := int(elapsed.Seconds())
 	minutes := totalSeconds / 60
@@ -154,7 +173,8 @@ func launchGUI() {
 	includeVideosCheck := widget.NewCheck("Include video files", nil)
 	includeMOVCheck := widget.NewCheck("Include MOV files", nil)
 	keepVideoAudioCheck := widget.NewCheck("Keep source video audio", nil)
-	orderByFilenameCheck := widget.NewCheck("Order by filename", nil)
+	orderModeSelect := widget.NewSelect(orderModeOptions(), nil)
+	orderModeSelect.SetSelected(guiOrderModeMetadata)
 	fullHDCheck := widget.NewCheck("Output Full HD (1920x1080)", nil)
 	exifOverlayCheck := widget.NewCheck("Enable EXIF overlay", nil)
 
@@ -256,7 +276,7 @@ func launchGUI() {
 			includeVideos:   includeVideosCheck.Checked,
 			includeMOV:      includeMOVCheck.Checked,
 			keepVideoAudio:  (includeVideosCheck.Checked || includeMOVCheck.Checked) && keepVideoAudioCheck.Checked,
-			orderByFilename: orderByFilenameCheck.Checked,
+			orderMode:       orderModeToFlag(orderModeSelect.Selected),
 			fullHD:          fullHDCheck.Checked,
 			kenBurnsMode:    motionStyleToKenBurnsMode(kenBurnsSelect.Selected),
 			exifOverlay:     exifOverlayCheck.Checked,
@@ -272,7 +292,7 @@ func launchGUI() {
 			includeVideosCheck,
 			includeMOVCheck,
 			keepVideoAudioCheck,
-			orderByFilenameCheck,
+			orderModeSelect,
 			fullHDCheck,
 			exifOverlayCheck,
 			durationEntry,
@@ -377,7 +397,7 @@ func launchGUI() {
 				fitAudioCheck,
 				includeVideosCheck,
 				includeMOVCheck,
-				orderByFilenameCheck,
+				orderModeSelect,
 				fullHDCheck,
 				exifOverlayCheck,
 				durationEntry,
@@ -423,12 +443,12 @@ func launchGUI() {
 			staticCheck,
 			fitAudioCheck,
 			labeledField("Motion style", kenBurnsSelect),
+			labeledField("Order", orderModeSelect),
 		),
 		container.NewVBox(
 			includeVideosCheck,
 			includeMOVCheck,
 			keepVideoAudioCheck,
-			orderByFilenameCheck,
 			fullHDCheck,
 			exifOverlayCheck,
 		),
@@ -553,9 +573,7 @@ func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string), stopRe
 	if opts.keepVideoAudio {
 		args = append(args, "-keep-video-audio")
 	}
-	if opts.orderByFilename {
-		args = append(args, "-order-by-filename")
-	}
+	args = append(args, "-order", opts.orderMode)
 	if opts.fullHD {
 		args = append(args, "-fullhd")
 	}

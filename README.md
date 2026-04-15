@@ -71,7 +71,7 @@ Saída padrão:
 - -include-videos: inclui mp4, mov, mkv, avi, webm e m4v na timeline.
 - -include-mov: inclui apenas arquivos mov/MOV na timeline.
 - -keep-video-audio: preserva áudio dos vídeos de entrada.
-- -order-by-filename: ignora metadata e ordena por nome.
+- -order <metadata|filename|random>: define o modo de ordenação da timeline.
 - -kenburns-mode <low|medium|high>: escolhe a intensidade do pan + zoom.
 - -exif-overlay: adiciona legenda com dados da câmera.
 - -overlay-font-size <pixels>: tamanho da fonte do overlay. Padrão: 36.
@@ -98,8 +98,8 @@ Saída padrão:
 # Misturar áudio dos vídeos com o MP3 de fundo
 ./go24k -include-videos -keep-video-audio
 
-# Ordenar pelo nome do arquivo
-./go24k -order-by-filename
+# Escolher modo de ordenação
+./go24k -order random
 
 # Overlay EXIF
 ./go24k -exif-overlay -overlay-font-size 48

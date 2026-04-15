@@ -56,6 +56,14 @@ func TestMainFlags(t *testing.T) {
 			args: []string{"go24k", "-order-by-filename"},
 		},
 		{
+			name: "Random order",
+			args: []string{"go24k", "-random-order"},
+		},
+		{
+			name: "Order mode random",
+			args: []string{"go24k", "-order", "random"},
+		},
+		{
 			name: "Ken Burns high mode",
 			args: []string{"go24k", "-kenburns-mode", "high"},
 		},
@@ -83,7 +91,9 @@ func TestMainFlags(t *testing.T) {
 			includeVideos := flag.Bool("include-videos", false, "Include supported video files together with pictures")
 			includeMOV := flag.Bool("include-mov", false, "Include MOV files together with pictures")
 			keepVideoAudio := flag.Bool("keep-video-audio", false, "Keep input video audio and blend it with MP3 background audio")
+			orderMode := flag.String("order", "metadata", "Timeline order: metadata, filename, or random")
 			orderByFilename := flag.Bool("order-by-filename", false, "Order timeline by filename instead of metadata time")
+			randomOrder := flag.Bool("random-order", false, "Order timeline randomly")
 			kenBurnsMode := flag.String("kenburns-mode", "high", "Ken Burns mode intensity: low, medium, or high")
 
 			// Parse the test arguments
@@ -134,6 +144,14 @@ func TestMainFlags(t *testing.T) {
 			case "Order by filename":
 				if !*orderByFilename {
 					t.Error("order-by-filename flag should be true")
+				}
+			case "Random order":
+				if !*randomOrder {
+					t.Error("random-order flag should be true")
+				}
+			case "Order mode random":
+				if *orderMode != "random" {
+					t.Errorf("order should be random, got %s", *orderMode)
 				}
 			case "Ken Burns high mode":
 				if *kenBurnsMode != "high" {

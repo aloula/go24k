@@ -22,7 +22,9 @@ func main() {
 	includeVideos := flag.Bool("include-videos", false, "Include supported video files together with pictures")
 	includeMOV := flag.Bool("include-mov", false, "Include MOV files together with pictures")
 	keepVideoAudio := flag.Bool("keep-video-audio", false, "Keep input video audio and blend it with MP3 background audio")
+	orderMode := flag.String("order", "metadata", "Timeline order: metadata, filename, or random")
 	orderByFilename := flag.Bool("order-by-filename", false, "Order timeline by filename instead of metadata time")
+	randomOrder := flag.Bool("random-order", false, "Order timeline randomly")
 	fullHD := flag.Bool("fullhd", false, "Generate Full HD (1920x1080) video instead of 4K UHD (3840x2160)")
 	kenBurnsMode := flag.String("kenburns-mode", "high", "Ken Burns mode intensity: low, medium, or high")
 	debug := flag.Bool("debug", false, "Show environment detection and optimization info")
@@ -39,7 +41,25 @@ func main() {
 		fmt.Printf("USAGE:\n")
 		fmt.Printf("  %s [OPTIONS]\n\n", "go24k")
 		fmt.Printf("OPTIONS:\n")
-		flag.PrintDefaults()
+		fmt.Printf("  -convert-only                         Convert images only, without generating the video\n")
+		fmt.Printf("  -static                               Do NOT apply Ken Burns effect; use static images with transitions\n")
+		fmt.Printf("  -d int                                Duration per image in seconds (default 5)\n")
+		fmt.Printf("  -t int                                Transition (fade) duration in seconds (default 1)\n")
+		fmt.Printf("  -fps int                              Output framerate override: 30 or 60\n")
+		fmt.Printf("  -fit-audio                            Auto-fit image and transition durations to fill the music length\n")
+		fmt.Printf("  -include-videos                       Include supported video files together with pictures\n")
+		fmt.Printf("  -include-mov                          Include MOV files together with pictures\n")
+		fmt.Printf("  -keep-video-audio                     Keep input video audio and blend it with MP3 background audio\n")
+		fmt.Printf("  -order string                         Timeline order: metadata, filename, or random (default metadata)\n")
+		fmt.Printf("  -fullhd                               Generate Full HD (1920x1080) video instead of 4K UHD (3840x2160)\n")
+		fmt.Printf("  -kenburns-mode string                 Ken Burns mode intensity: low, medium, or high (default high)\n")
+		fmt.Printf("  -exif-overlay                         Add camera info overlay to video (bottom center)\n")
+		fmt.Printf("  -overlay-font-size int                Font size for EXIF overlay (default 36)\n")
+		fmt.Printf("  -gui                                  Launch desktop GUI\n")
+		fmt.Printf("  -debug                                Show environment detection and optimization info\n")
+		fmt.Printf("  -version                              Show version information\n")
+		fmt.Printf("  -v                                    Show version information (short)\n")
+		fmt.Printf("  -help                                 Show this help message\n")
 		fmt.Printf("\nEXAMPLES:\n")
 		fmt.Printf("  go24k                                      # Create 4K video with default settings\n")
 		fmt.Printf("  go24k                                      # Auto FPS: 60 with Ken Burns, 30 with -static\n")
@@ -54,8 +74,9 @@ func main() {
 		fmt.Printf("  go24k -fit-audio                         # Auto-fit duration to music length\n")
 		fmt.Printf("  go24k -include-videos                    # Mix videos with pictures in the timeline\n")
 		fmt.Printf("  go24k -include-mov                       # Mix MOV files with pictures in the timeline\n")
+		fmt.Printf("  go24k -order random                      # Random timeline order\n")
+		fmt.Printf("  go24k -order filename                    # Filename timeline order\n")
 		fmt.Printf("  go24k -include-videos -keep-video-audio  # Keep clip audio and blend it with MP3 audio\n")
-		fmt.Printf("  go24k -order-by-filename                 # Ignore metadata and sort timeline by filename\n")
 		fmt.Printf("  go24k -fullhd                              # Generate Full HD (1920x1080) video\n")
 		fmt.Printf("  go24k -gui                                 # Open desktop GUI\n")
 		fmt.Printf("  go24k -convert-only                        # Only convert images to 4K\n")
@@ -114,6 +135,27 @@ func main() {
 	if !*convertOnly {
 		// If -static is provided, applyKenBurns will be false.
 		applyKenBurns := !*static
+		resolvedOrderMode := strings.ToLower(strings.TrimSpace(*orderMode))
+		switch resolvedOrderMode {
+		case "", "metadata":
+			resolvedOrderMode = "metadata"
+		case "filename", "random":
+		default:
+			fmt.Printf("Error: invalid -order value %q. Use metadata, filename, or random\n", *orderMode)
+			return
+		}
+
+		// Backward-compatible aliases; explicit legacy flags override -order.
+		if *orderByFilename {
+			resolvedOrderMode = "filename"
+		}
+		if *randomOrder {
+			resolvedOrderMode = "random"
+		}
+
+		resolvedOrderByFilename := resolvedOrderMode == "filename"
+		resolvedRandomOrder := resolvedOrderMode == "random"
+
 		targetFPS := *fps
 		if !fpsSpecified {
 			if applyKenBurns {
@@ -123,7 +165,7 @@ func main() {
 			}
 		}
 		// Pass the duration and transition values from the flags.
-		utils.GenerateVideo(*duration, *transition, applyKenBurns, *exifOverlay, *overlayFontSize, *fitAudio, *includeVideos, *includeMOV, *keepVideoAudio, *fullHD, targetFPS, *orderByFilename, *kenBurnsMode)
+		utils.GenerateVideo(*duration, *transition, applyKenBurns, *exifOverlay, *overlayFontSize, *fitAudio, *includeVideos, *includeMOV, *keepVideoAudio, *fullHD, targetFPS, resolvedOrderByFilename, resolvedRandomOrder, *kenBurnsMode)
 	}
 
 	// Report processing time (only if not convert-only since conversion already shows its time)
