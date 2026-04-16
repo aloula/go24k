@@ -30,9 +30,10 @@ var guiIconCandidates = []string{
 }
 
 const (
-	guiMotionLabelLow    = "Pan + zoom (low)"
-	guiMotionLabelMedium = "Pan + zoom (medium)"
-	guiMotionLabelHigh   = "Pan + zoom (high)"
+	guiEffectsLabelDisabled = "Disabled"
+	guiEffectsLabelLow      = "Low"
+	guiEffectsLabelMedium   = "Medium"
+	guiEffectsLabelHigh     = "High"
 
 	guiOrderModeMetadata = "Metadata"
 	guiOrderModeFilename = "Filename"
@@ -41,18 +42,15 @@ const (
 
 type guiOptions struct {
 	inputFolder     string
-	convertOnly     bool
-	staticImages    bool
 	duration        int
 	transition      int
 	fpsMode         string
+	effectsMode     string
 	fitAudio        bool
 	includeVideos   bool
-	includeMOV      bool
 	keepVideoAudio  bool
 	orderMode       string
 	fullHD          bool
-	kenBurnsMode    string
 	exifOverlay     bool
 	overlayFontSize int
 }
@@ -101,17 +99,19 @@ func (b *guiLogBuffer) Flush() string {
 	return b.stable.String()
 }
 
-func motionStyleOptions() []string {
-	return []string{guiMotionLabelLow, guiMotionLabelMedium, guiMotionLabelHigh}
+func effectsOptions() []string {
+	return []string{guiEffectsLabelDisabled, guiEffectsLabelLow, guiEffectsLabelMedium, guiEffectsLabelHigh}
 }
 
-func motionStyleToKenBurnsMode(label string) string {
+func effectsModeToFlag(label string) string {
 	switch label {
-	case guiMotionLabelLow:
+	case guiEffectsLabelDisabled:
+		return "disabled"
+	case guiEffectsLabelLow:
 		return "low"
-	case guiMotionLabelMedium:
+	case guiEffectsLabelMedium:
 		return "medium"
-	case guiMotionLabelHigh:
+	case guiEffectsLabelHigh:
 		return "high"
 	default:
 		return "high"
@@ -167,19 +167,18 @@ func launchGUI() {
 		}, w)
 	})
 
-	convertOnlyCheck := widget.NewCheck("Convert images only", nil)
-	staticCheck := widget.NewCheck("Disable Ken Burns (static images)", nil)
 	fitAudioCheck := widget.NewCheck("Fit timeline to audio length", nil)
-	includeVideosCheck := widget.NewCheck("Include video files", nil)
-	includeMOVCheck := widget.NewCheck("Include MOV files", nil)
+	includeVideosCheck := widget.NewCheck("Include video files (mp4, mov, mkv, avi, webm, m4v)", nil)
 	keepVideoAudioCheck := widget.NewCheck("Keep source video audio", nil)
+	effectsSelect := widget.NewSelect(effectsOptions(), nil)
+	effectsSelect.SetSelected(guiEffectsLabelDisabled)
 	orderModeSelect := widget.NewSelect(orderModeOptions(), nil)
 	orderModeSelect.SetSelected(guiOrderModeMetadata)
 	fullHDCheck := widget.NewCheck("Output Full HD (1920x1080)", nil)
 	exifOverlayCheck := widget.NewCheck("Enable EXIF overlay", nil)
 
 	updateVideoAudioControl := func() {
-		if includeVideosCheck.Checked || includeMOVCheck.Checked {
+		if includeVideosCheck.Checked {
 			keepVideoAudioCheck.Enable()
 			return
 		}
@@ -188,9 +187,6 @@ func launchGUI() {
 	}
 
 	includeVideosCheck.OnChanged = func(bool) {
-		updateVideoAudioControl()
-	}
-	includeMOVCheck.OnChanged = func(bool) {
 		updateVideoAudioControl()
 	}
 	keepVideoAudioCheck.Disable()
@@ -204,16 +200,6 @@ func launchGUI() {
 
 	fpsSelect := widget.NewSelect([]string{"auto", "30", "60"}, nil)
 	fpsSelect.SetSelected("auto")
-
-	kenBurnsSelect := widget.NewSelect(motionStyleOptions(), nil)
-	kenBurnsSelect.SetSelected(guiMotionLabelHigh)
-	staticCheck.OnChanged = func(checked bool) {
-		if checked {
-			kenBurnsSelect.Disable()
-			return
-		}
-		kenBurnsSelect.Enable()
-	}
 
 	logOutput := widget.NewMultiLineEntry()
 	logOutput.Wrapping = fyne.TextWrapWord
@@ -267,18 +253,15 @@ func launchGUI() {
 
 		opts := guiOptions{
 			inputFolder:     inputFolder,
-			convertOnly:     convertOnlyCheck.Checked,
-			staticImages:    staticCheck.Checked,
 			duration:        durationValue,
 			transition:      transitionValue,
 			fpsMode:         fpsSelect.Selected,
+			effectsMode:     effectsModeToFlag(effectsSelect.Selected),
 			fitAudio:        fitAudioCheck.Checked,
 			includeVideos:   includeVideosCheck.Checked,
-			includeMOV:      includeMOVCheck.Checked,
-			keepVideoAudio:  (includeVideosCheck.Checked || includeMOVCheck.Checked) && keepVideoAudioCheck.Checked,
+			keepVideoAudio:  includeVideosCheck.Checked && keepVideoAudioCheck.Checked,
 			orderMode:       orderModeToFlag(orderModeSelect.Selected),
 			fullHD:          fullHDCheck.Checked,
-			kenBurnsMode:    motionStyleToKenBurnsMode(kenBurnsSelect.Selected),
 			exifOverlay:     exifOverlayCheck.Checked,
 			overlayFontSize: fontSizeValue,
 		}
@@ -286,12 +269,10 @@ func launchGUI() {
 		runButton.Disable()
 		setControlsEnabled(false,
 			browseButton,
-			convertOnlyCheck,
-			staticCheck,
 			fitAudioCheck,
 			includeVideosCheck,
-			includeMOVCheck,
 			keepVideoAudioCheck,
+			effectsSelect,
 			orderModeSelect,
 			fullHDCheck,
 			exifOverlayCheck,
@@ -299,7 +280,6 @@ func launchGUI() {
 			transitionEntry,
 			fontSizeEntry,
 			fpsSelect,
-			kenBurnsSelect,
 			runButton,
 		)
 		stopRequested := make(chan struct{})
@@ -392,25 +372,19 @@ func launchGUI() {
 			stopButton.Hide()
 			setControlsEnabled(true,
 				browseButton,
-				convertOnlyCheck,
-				staticCheck,
 				fitAudioCheck,
 				includeVideosCheck,
-				includeMOVCheck,
 				orderModeSelect,
+				effectsSelect,
 				fullHDCheck,
 				exifOverlayCheck,
 				durationEntry,
 				transitionEntry,
 				fontSizeEntry,
 				fpsSelect,
-				kenBurnsSelect,
 				runButton,
 			)
 			updateVideoAudioControl()
-			if staticCheck.Checked {
-				kenBurnsSelect.Disable()
-			}
 
 			if runErr != nil {
 				if errors.Is(runErr, errGUIProcessStopped) {
@@ -439,15 +413,12 @@ func launchGUI() {
 
 	optionsGrid := container.NewGridWithColumns(2,
 		container.NewVBox(
-			convertOnlyCheck,
-			staticCheck,
-			fitAudioCheck,
-			labeledField("Motion style", kenBurnsSelect),
+			labeledField("Effects", effectsSelect),
 			labeledField("Order", orderModeSelect),
 		),
 		container.NewVBox(
+			fitAudioCheck,
 			includeVideosCheck,
-			includeMOVCheck,
 			keepVideoAudioCheck,
 			fullHDCheck,
 			exifOverlayCheck,
@@ -549,15 +520,8 @@ func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string), stopRe
 	args := []string{}
 	args = append(args, "-d", strconv.Itoa(opts.duration))
 	args = append(args, "-t", strconv.Itoa(opts.transition))
-	args = append(args, "-kenburns-mode", opts.kenBurnsMode)
+	args = append(args, "-effects", opts.effectsMode)
 	args = append(args, "-overlay-font-size", strconv.Itoa(opts.overlayFontSize))
-
-	if opts.convertOnly {
-		args = append(args, "-convert-only")
-	}
-	if opts.staticImages {
-		args = append(args, "-static")
-	}
 	if opts.fpsMode == "30" || opts.fpsMode == "60" {
 		args = append(args, "-fps", opts.fpsMode)
 	}
@@ -566,9 +530,6 @@ func runGeneratorFromGUIStreaming(opts guiOptions, onOutput func(string), stopRe
 	}
 	if opts.includeVideos {
 		args = append(args, "-include-videos")
-	}
-	if opts.includeMOV {
-		args = append(args, "-include-mov")
 	}
 	if opts.keepVideoAudio {
 		args = append(args, "-keep-video-audio")

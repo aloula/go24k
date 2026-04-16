@@ -24,12 +24,8 @@ func TestMainFlags(t *testing.T) {
 			args: []string{"go24k"},
 		},
 		{
-			name: "Convert only",
-			args: []string{"go24k", "-convert-only"},
-		},
-		{
-			name: "Static mode",
-			args: []string{"go24k", "-static"},
+			name: "Effects disabled",
+			args: []string{"go24k", "-effects", "disabled"},
 		},
 		{
 			name: "Custom duration and transition",
@@ -42,10 +38,6 @@ func TestMainFlags(t *testing.T) {
 		{
 			name: "Include videos",
 			args: []string{"go24k", "-include-videos"},
-		},
-		{
-			name: "Include MOV",
-			args: []string{"go24k", "-include-mov"},
 		},
 		{
 			name: "Keep video audio",
@@ -64,16 +56,20 @@ func TestMainFlags(t *testing.T) {
 			args: []string{"go24k", "-order", "random"},
 		},
 		{
-			name: "Ken Burns high mode",
-			args: []string{"go24k", "-kenburns-mode", "high"},
+			name: "Effects high",
+			args: []string{"go24k", "-effects", "high"},
 		},
 		{
-			name: "Ken Burns low mode",
-			args: []string{"go24k", "-kenburns-mode", "low"},
+			name: "Effects low",
+			args: []string{"go24k", "-effects", "low"},
 		},
 		{
-			name: "Ken Burns medium mode",
-			args: []string{"go24k", "-kenburns-mode", "medium"},
+			name: "Effects medium",
+			args: []string{"go24k", "-effects", "medium"},
+		},
+		{
+			name: "Effects disabled explicit",
+			args: []string{"go24k", "-effects", "disabled"},
 		},
 	}
 
@@ -83,18 +79,15 @@ func TestMainFlags(t *testing.T) {
 			flag.CommandLine = flag.NewFlagSet(tt.args[0], flag.ContinueOnError)
 
 			// Set up flags (copy from main)
-			convertOnly := flag.Bool("convert-only", false, "Convert images only, without generating the video")
-			static := flag.Bool("static", false, "Do NOT apply Ken Burns effect; use static images with transitions")
 			duration := flag.Int("d", 5, "Duration per image in seconds")
 			transition := flag.Int("t", 1, "Transition (fade) duration in seconds")
+			effects := flag.String("effects", "disabled", "Image motion effects: disabled, low, medium, or high")
 			debug := flag.Bool("debug", false, "Show environment detection and optimization info")
 			includeVideos := flag.Bool("include-videos", false, "Include supported video files together with pictures")
-			includeMOV := flag.Bool("include-mov", false, "Include MOV files together with pictures")
 			keepVideoAudio := flag.Bool("keep-video-audio", false, "Keep input video audio and blend it with MP3 background audio")
 			orderMode := flag.String("order", "metadata", "Timeline order: metadata, filename, or random")
 			orderByFilename := flag.Bool("order-by-filename", false, "Order timeline by filename instead of metadata time")
 			randomOrder := flag.Bool("random-order", false, "Order timeline randomly")
-			kenBurnsMode := flag.String("kenburns-mode", "high", "Ken Burns mode intensity: low, medium, or high")
 
 			// Parse the test arguments
 			os.Args = tt.args
@@ -107,19 +100,18 @@ func TestMainFlags(t *testing.T) {
 			// Verify flags were parsed correctly
 			switch tt.name {
 			case "Default flags":
-				if *convertOnly || *static || *debug {
+				if *debug {
 					t.Error("Default flags should all be false")
 				}
 				if *duration != 5 || *transition != 1 {
 					t.Errorf("Default duration should be 5, transition 1, got d=%d t=%d", *duration, *transition)
 				}
-			case "Convert only":
-				if !*convertOnly {
-					t.Error("convert-only flag should be true")
+				if *effects != "disabled" {
+					t.Errorf("default effects should be disabled, got %s", *effects)
 				}
-			case "Static mode":
-				if !*static {
-					t.Error("static flag should be true")
+			case "Effects disabled", "Effects disabled explicit":
+				if *effects != "disabled" {
+					t.Errorf("effects should be disabled, got %s", *effects)
 				}
 			case "Custom duration and transition":
 				if *duration != 10 || *transition != 2 {
@@ -132,10 +124,6 @@ func TestMainFlags(t *testing.T) {
 			case "Include videos":
 				if !*includeVideos {
 					t.Error("include-videos flag should be true")
-				}
-			case "Include MOV":
-				if !*includeMOV {
-					t.Error("include-mov flag should be true")
 				}
 			case "Keep video audio":
 				if !*keepVideoAudio {
@@ -153,17 +141,17 @@ func TestMainFlags(t *testing.T) {
 				if *orderMode != "random" {
 					t.Errorf("order should be random, got %s", *orderMode)
 				}
-			case "Ken Burns high mode":
-				if *kenBurnsMode != "high" {
-					t.Errorf("kenburns-mode should be high, got %s", *kenBurnsMode)
+			case "Effects high":
+				if *effects != "high" {
+					t.Errorf("effects should be high, got %s", *effects)
 				}
-			case "Ken Burns low mode":
-				if *kenBurnsMode != "low" {
-					t.Errorf("kenburns-mode should be low, got %s", *kenBurnsMode)
+			case "Effects low":
+				if *effects != "low" {
+					t.Errorf("effects should be low, got %s", *effects)
 				}
-			case "Ken Burns medium mode":
-				if *kenBurnsMode != "medium" {
-					t.Errorf("kenburns-mode should be medium, got %s", *kenBurnsMode)
+			case "Effects medium":
+				if *effects != "medium" {
+					t.Errorf("effects should be medium, got %s", *effects)
 				}
 			}
 		})
@@ -210,49 +198,35 @@ func TestMainFlagValidation(t *testing.T) {
 func TestMainWorkflow(t *testing.T) {
 	tests := []struct {
 		name           string
-		convertOnly    bool
-		static         bool
+		effectsMode    string
 		expectKenBurns bool
 	}{
 		{
 			name:           "Normal workflow with Ken Burns",
-			convertOnly:    false,
-			static:         false,
+			effectsMode:    "high",
 			expectKenBurns: true,
 		},
 		{
-			name:           "Normal workflow without Ken Burns",
-			convertOnly:    false,
-			static:         true,
+			name:           "Workflow with effects disabled",
+			effectsMode:    "disabled",
 			expectKenBurns: false,
-		},
-		{
-			name:        "Convert only workflow",
-			convertOnly: true,
-			static:      false,
-			// Ken Burns flag irrelevant for convert-only
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test the Ken Burns logic
-			applyKenBurns := !tt.static
+			applyKenBurns := tt.effectsMode != "disabled"
 
 			if tt.name == "Normal workflow with Ken Burns" && !applyKenBurns {
-				t.Error("Should apply Ken Burns when static is false")
+				t.Error("Should apply Ken Burns when effects are enabled")
 			}
 
-			if tt.name == "Normal workflow without Ken Burns" && applyKenBurns {
-				t.Error("Should not apply Ken Burns when static is true")
+			if tt.name == "Workflow with effects disabled" && applyKenBurns {
+				t.Error("Should not apply Ken Burns when effects are disabled")
 			}
 
-			// Test workflow branching
-			if tt.convertOnly {
-				t.Log("Convert-only mode: would skip video generation")
-			} else {
-				t.Logf("Full workflow: would generate video with Ken Burns = %v", applyKenBurns)
-			}
+			t.Logf("Full workflow: effects=%s, applyKenBurns=%v", tt.effectsMode, applyKenBurns)
 		})
 	}
 }
@@ -265,19 +239,19 @@ func TestMainFlags_EdgeCases(t *testing.T) {
 	}{
 		{
 			name: "Multiple_flags_combined",
-			args: []string{"-d", "10", "-t", "2", "-static", "-convert-only"},
+			args: []string{"-d", "10", "-t", "2", "-effects", "disabled"},
 		},
 		{
 			name: "Debug_with_other_flags",
 			args: []string{"--debug", "-d", "3"},
 		},
 		{
-			name: "Convert_only_with_duration",
-			args: []string{"-convert-only", "-d", "999"}, // Duration should be ignored
+			name: "Effects_with_duration",
+			args: []string{"-effects", "high", "-d", "999"},
 		},
 		{
-			name: "Static_with_transition",
-			args: []string{"-static", "-t", "5"}, // Transition should be ignored in static mode
+			name: "Effects_disabled_with_transition",
+			args: []string{"-effects", "disabled", "-t", "5"},
 		},
 	}
 
@@ -295,30 +269,24 @@ func TestFlagCombinations(t *testing.T) {
 		name           string
 		duration       int
 		transition     int
-		static         bool
-		convertOnly    bool
+		effectsMode    string
 		debug          bool
 		expectVideo    bool
 		expectKenBurns bool
 	}{
 		{
 			name:     "Default_settings",
-			duration: 5, transition: 1, static: false, convertOnly: false, debug: false,
+			duration: 5, transition: 1, effectsMode: "high", debug: false,
 			expectVideo: true, expectKenBurns: true,
 		},
 		{
-			name:     "Static_mode",
-			duration: 5, transition: 1, static: true, convertOnly: false, debug: false,
+			name:     "Effects_disabled",
+			duration: 5, transition: 1, effectsMode: "disabled", debug: false,
 			expectVideo: true, expectKenBurns: false,
 		},
 		{
-			name:     "Convert_only",
-			duration: 5, transition: 1, static: false, convertOnly: true, debug: false,
-			expectVideo: false, expectKenBurns: false,
-		},
-		{
 			name:     "Debug_mode",
-			duration: 5, transition: 1, static: false, convertOnly: false, debug: true,
+			duration: 5, transition: 1, effectsMode: "high", debug: true,
 			expectVideo: true, expectKenBurns: true,
 		},
 	}
@@ -326,16 +294,14 @@ func TestFlagCombinations(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test the logical combinations
-			if tc.convertOnly && tc.expectVideo {
-				t.Error("Convert-only mode should not generate video")
+			applyKenBurns := tc.effectsMode != "disabled"
+
+			if applyKenBurns != tc.expectKenBurns {
+				t.Errorf("effects=%s expected Ken Burns=%v, got %v", tc.effectsMode, tc.expectKenBurns, applyKenBurns)
 			}
 
-			if tc.static && tc.expectKenBurns {
-				t.Error("Static mode should not use Ken Burns effects")
-			}
-
-			t.Logf("Testing combination: duration=%d, transition=%d, static=%v, convertOnly=%v, debug=%v",
-				tc.duration, tc.transition, tc.static, tc.convertOnly, tc.debug)
+			t.Logf("Testing combination: duration=%d, transition=%d, effects=%s, debug=%v",
+				tc.duration, tc.transition, tc.effectsMode, tc.debug)
 		})
 	}
 }
@@ -386,15 +352,14 @@ func TestMainValidation_ExtendedCases(t *testing.T) {
 
 // BenchmarkFlagParsing benchmarks the flag parsing performance
 func BenchmarkFlagParsing(b *testing.B) {
-	args := []string{"go24k", "-d", "10", "-t", "2", "-static"}
+	args := []string{"go24k", "-d", "10", "-t", "2", "-effects", "medium"}
 
 	for i := 0; i < b.N; i++ {
 		// Reset flags for each iteration
 		flag.CommandLine = flag.NewFlagSet("go24k", flag.ContinueOnError)
 
 		// Set up flags
-		flag.Bool("convert-only", false, "Convert images only")
-		flag.Bool("static", false, "Disable Ken Burns effect")
+		flag.String("effects", "disabled", "Image motion effects")
 		flag.Bool("debug", false, "Show environment info")
 		flag.Int("d", 5, "Duration per image")
 		flag.Int("t", 1, "Transition duration")

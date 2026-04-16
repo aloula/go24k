@@ -58,9 +58,9 @@ func TestIntegrationFullWorkflow(t *testing.T) {
 		}
 	}
 
-	// Test convert-only mode
-	t.Run("ConvertOnly", func(t *testing.T) {
-		cmd := exec.Command(binaryPath, "-convert-only")
+	// Test that a normal run creates converted images and output video
+	t.Run("FullRunCreatesConvertedImages", func(t *testing.T) {
+		cmd := exec.Command(binaryPath, "-d", "2", "-t", "1")
 		cmd.Dir = tempDir
 
 		output, err := cmd.CombinedOutput()
@@ -85,7 +85,7 @@ func TestIntegrationFullWorkflow(t *testing.T) {
 			t.Error("No converted images found")
 		}
 
-		t.Logf("Convert-only successful: %d images converted", len(convertedFiles))
+		t.Logf("Full run generated %d converted images", len(convertedFiles))
 	})
 
 	// Clean up for next test
@@ -123,7 +123,7 @@ func TestIntegrationFullWorkflow(t *testing.T) {
 	})
 }
 
-func TestIntegrationStaticMode(t *testing.T) {
+func TestIntegrationEffectsDisabledMode(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -132,7 +132,7 @@ func TestIntegrationStaticMode(t *testing.T) {
 		t.Skip("FFmpeg not available")
 	}
 
-	// Similar setup as above but test static mode
+	// Similar setup as above but test disabled effects mode
 	tempDir, err := os.MkdirTemp("", "go24k_static_*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -147,13 +147,13 @@ func TestIntegrationStaticMode(t *testing.T) {
 
 	binaryPath := filepath.Join(originalDir, "go24k")
 
-	// Test static mode (no Ken Burns effect)
-	cmd := exec.Command(binaryPath, "-static", "-d", "2", "-t", "1")
+	// Test effects disabled mode (no Ken Burns effect)
+	cmd := exec.Command(binaryPath, "-effects", "disabled", "-d", "2", "-t", "1")
 	cmd.Dir = tempDir
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Errorf("Static mode failed: %v\nOutput: %s", err, output)
+		t.Errorf("Effects disabled mode failed: %v\nOutput: %s", err, output)
 		return
 	}
 
@@ -162,7 +162,7 @@ func TestIntegrationStaticMode(t *testing.T) {
 		t.Error("Video file not created in static mode")
 	}
 
-	t.Log("Static mode video generation successful")
+	t.Log("Effects disabled mode video generation successful")
 }
 
 func TestIntegrationDebugMode(t *testing.T) {

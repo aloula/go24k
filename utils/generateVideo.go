@@ -35,7 +35,7 @@ var activeKenBurnsMode = kenBurnsModeHigh
 // If applyKenBurns is false, the images remain static.
 // If exifOverlay is true, camera info will be displayed in the footer with specified fontSize.
 // If fullHD is true, the output resolution will be Full HD (1920x1080) instead of 4K UHD (3840x2160).
-func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int, fitAudio, includeVideos, includeMOV, keepVideoAudio, fullHD bool, fps int, orderByFilename, randomOrder bool, kenBurnsMode string) {
+func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, fontSize int, fitAudio, includeVideos, keepVideoAudio, fullHD bool, fps int, orderByFilename, randomOrder bool, kenBurnsMode string) {
 	// Set active resolution based on the fullHD flag.
 	if fullHD {
 		activeResolution = resolutionFullHD
@@ -53,7 +53,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	durationSec := float64(duration)
 	fadeSec := float64(fadeDuration)
 
-	mediaInputs, err := collectMediaInputs(durationSec, includeVideos, includeMOV, orderByFilename, randomOrder)
+	mediaInputs, err := collectMediaInputs(durationSec, includeVideos, orderByFilename, randomOrder)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
@@ -75,7 +75,7 @@ func GenerateVideo(duration, fadeDuration int, applyKenBurns, exifOverlay bool, 
 	if applyKenBurns {
 		fmt.Printf("Ken Burns mode: %s\n", activeKenBurnsMode)
 	} else {
-		fmt.Printf("Ken Burns mode: disabled (-static)\n")
+		fmt.Printf("Ken Burns mode: disabled\n")
 	}
 
 	// Detect music files once

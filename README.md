@@ -48,9 +48,8 @@ Observação: builds padrão (sem `-tags fyne`) continuam funcionando para CLI e
 A GUI permite:
 
 - Selecionar a pasta com imagens, músicas e vídeos.
-- Configurar duração, transição, FPS e estilo de movimento (pan + zoom em low/medium/high).
-- Ativar opções como fit-audio, include-videos, include-mov, keep-video-audio, fullhd e exif-overlay.
-- Desabilitar movimento com `-static` (na GUI, isso desativa o seletor de estilo de movimento).
+- Configurar duração, transição, FPS e efeitos (disabled/low/medium/high).
+- Ativar opções como fit-audio, include-videos, keep-video-audio, fullhd e exif-overlay.
 - Executar a geração e acompanhar log/progresso em tempo real.
 
 Saída padrão:
@@ -63,16 +62,13 @@ Saída padrão:
 
 - -d <segundos>: duração por imagem. Padrão: 5.
 - -t <segundos>: duração da transição. Padrão: 1.
-- -static: desabilita Ken Burns.
+- -effects <disabled|low|medium|high>: define o nível de efeito de movimento nas imagens. Padrão: disabled.
 - -fps <30|60>: força o framerate de saída.
 - -fullhd: gera em 1920x1080 em vez de 3840x2160.
-- -convert-only: apenas converte imagens.
 - -fit-audio: ajusta as imagens ao tempo da música quando aplicável.
 - -include-videos: inclui mp4, mov, mkv, avi, webm e m4v na timeline.
-- -include-mov: inclui apenas arquivos mov/MOV na timeline.
 - -keep-video-audio: preserva áudio dos vídeos de entrada.
 - -order <metadata|filename|random>: define o modo de ordenação da timeline.
-- -kenburns-mode <low|medium|high>: escolhe a intensidade do pan + zoom.
 - -exif-overlay: adiciona legenda com dados da câmera.
 - -overlay-font-size <pixels>: tamanho da fonte do overlay. Padrão: 36.
 - --debug: mostra detecção de hardware e parâmetros do FFmpeg.
@@ -83,17 +79,17 @@ Saída padrão:
 # Padrão
 ./go24k
 
-# Imagens estáticas com transição maior
-./go24k -static -d 6 -t 2
+# Efeitos desabilitados com transição maior
+./go24k -effects disabled -d 6 -t 2
+
+# Efeitos em nível médio
+./go24k -effects medium
 
 # Full HD a 60 fps
 ./go24k -fullhd -fps 60
 
 # Misturar fotos e vídeos
 ./go24k -include-videos
-
-# Incluir apenas arquivos MOV
-./go24k -include-mov
 
 # Misturar áudio dos vídeos com o MP3 de fundo
 ./go24k -include-videos -keep-video-audio

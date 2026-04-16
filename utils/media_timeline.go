@@ -23,18 +23,14 @@ type MediaInput struct {
 }
 
 // findVideoFiles returns video files in the current directory based on selected options.
-func findVideoFiles(includeVideos, includeMOV bool) ([]string, error) {
-	if !includeVideos && !includeMOV {
+func findVideoFiles(includeVideos bool) ([]string, error) {
+	if !includeVideos {
 		return []string{}, nil
 	}
 
 	allowedExtensions := map[string]struct{}{}
-	if includeVideos {
-		for _, ext := range []string{".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"} {
-			allowedExtensions[ext] = struct{}{}
-		}
-	} else if includeMOV {
-		allowedExtensions[".mov"] = struct{}{}
+	for _, ext := range []string{".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"} {
+		allowedExtensions[ext] = struct{}{}
 	}
 
 	generatedOutputs := generatedOutputVideoNames()
@@ -86,7 +82,7 @@ func outputVideoFilename() string {
 // Default ordering is capture metadata time, with filename as deterministic fallback.
 // If orderByFilename is true, ordering uses filenames only.
 // If randomOrder is true, timeline entries are shuffled randomly.
-func collectMediaInputs(imageDuration float64, includeVideos, includeMOV, orderByFilename, randomOrder bool) ([]MediaInput, error) {
+func collectMediaInputs(imageDuration float64, includeVideos, orderByFilename, randomOrder bool) ([]MediaInput, error) {
 	imageFiles, err := filepath.Glob("converted/*.jpg")
 	if err != nil {
 		return nil, fmt.Errorf("failed to list converted images: %v", err)
@@ -113,8 +109,8 @@ func collectMediaInputs(imageDuration float64, includeVideos, includeMOV, orderB
 		})
 	}
 
-	if includeVideos || includeMOV {
-		videoFiles, err := findVideoFiles(includeVideos, includeMOV)
+	if includeVideos {
+		videoFiles, err := findVideoFiles(includeVideos)
 		if err != nil {
 			return nil, err
 		}
@@ -170,7 +166,7 @@ func collectMediaInputs(imageDuration float64, includeVideos, includeMOV, orderB
 	}
 
 	if len(media) == 0 {
-		if includeVideos || includeMOV {
+		if includeVideos {
 			return nil, fmt.Errorf("no converted images or supported videos found")
 		}
 		return nil, fmt.Errorf("no converted images found in 'converted/' directory.\nPlease convert your images first using the image conversion feature")
