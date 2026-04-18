@@ -1,42 +1,41 @@
-# Arquivos de mídia
+# Midia local para processamento
 *.jpg
-*.mp4
 *.mp3
+*.mp4
 
-
-# Diretórios gerados
+# Diretorios gerados
 /converted/
-#/builds/
+/builds/
 
-# Binários
+# Binarios
 go24k
 go24k.exe
 go24k-*
 go24k_test_*
 
-# Arquivos de teste e cobertura
+# Artefatos de teste e cobertura
 coverage.out
 coverage.html
 *_test_*/
 
-# Arquivos temporários
-*.tmp
+# Arquivos temporarios gerados em runtime
+/audio_concat.txt
+/filter_complex.txt
 *.temp
-audio_concat.txt
-filter_complex.txt
+*.tmp
 
 # Logs
 *.log
 
 # IDEs e editores
+.idea/
 .vscode/
 !.vscode/settings.json
-.idea/
-*.swp
 *.swo
+*.swp
 *~
 
-# Dependências Go (caso não esteja commitando)
+# Dependencias Go (caso nao esteja commitando)
 # vendor/
 
 # Arquivos do sistema

@@ -15,7 +15,7 @@ Ferramenta em Go para montar vídeos a partir de fotos JPEG, com suporte a 4K ou
 ## Requisitos
 
 - FFmpeg com ffprobe no PATH.
-- Go 1.25+ apenas para compilar do código-fonte.
+- Go 1.23+ apenas para compilar do código-fonte.
 
 ## Instalação
 
@@ -135,6 +135,21 @@ Builds para múltiplas plataformas:
 ```
 
 O script gera binários CLI para Linux/Windows/macOS e também tenta gerar binários GUI em `builds/gui/<goos>/<goarch>/go24k-gui` (ou `.exe` no Windows) quando os toolchains de cross-compilation da plataforma estão disponíveis.
+
+Observação: `builds/` é diretório de saída gerado localmente e não deve ser versionado.
+
+## Releases no GitHub
+
+Os binários de release são publicados automaticamente no GitHub Releases quando um tag `v*` é enviado (ex.: `v1.2.0`).
+
+Exemplo:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+O workflow gera binários CLI para Linux, Windows e macOS (amd64/arm64), calcula SHA256 e anexa tudo no release.
 
 Testes e checks mais usados:
 

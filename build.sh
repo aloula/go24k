@@ -1,10 +1,20 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Build script for Go24K with version information
 VERSION_FILE="utils/version.go"
 VERSION=$(grep 'Version.*=' "$VERSION_FILE" | sed 's/.*"\(.*\)".*/\1/')
 BUILD_DATE=$(date +%Y-%m-%d)
 BUILD_TIME=$(date +%H:%M:%S)
+
+restore_version_file() {
+    if [ -f "$VERSION_FILE.bak" ]; then
+        mv "$VERSION_FILE.bak" "$VERSION_FILE"
+    fi
+}
+
+trap restore_version_file EXIT
 
 echo "🏗️  Building Go24K v$VERSION ($BUILD_DATE $BUILD_TIME)"
 echo "================================================"
@@ -17,7 +27,6 @@ mkdir -p builds/{linux/{amd64,arm64},windows/{amd64,arm64},macos/{intel,arm}}
 
 # Build flags for optimization and version info
 BUILD_FLAGS="-ldflags=-s"
-GUI_BUILD_FLAGS="$BUILD_FLAGS -tags fyne"
 
 GUI_TARGETS=()
 
@@ -38,14 +47,15 @@ build_gui_target() {
     echo "Building GUI for ${target_os} (${target_arch})..."
 
     if [ -n "$compiler" ]; then
-        GOOS="$target_os" GOARCH="$target_arch" CGO_ENABLED=1 CC="$compiler" go build -tags fyne -ldflags "$gui_ldflags" -o "$output_dir/$binary_name" .
+        if ! GOOS="$target_os" GOARCH="$target_arch" CGO_ENABLED=1 CC="$compiler" go build -tags fyne -ldflags "$gui_ldflags" -o "$output_dir/$binary_name" .; then
+            echo "⚠️  GUI build failed for ${target_os}/${target_arch}"
+            return 1
+        fi
     else
-        GOOS="$target_os" GOARCH="$target_arch" CGO_ENABLED=1 go build -tags fyne -ldflags "$gui_ldflags" -o "$output_dir/$binary_name" .
-    fi
-
-    if [ $? -ne 0 ]; then
-        echo "⚠️  GUI build failed for ${target_os}/${target_arch}"
-        return 1
+        if ! GOOS="$target_os" GOARCH="$target_arch" CGO_ENABLED=1 go build -tags fyne -ldflags "$gui_ldflags" -o "$output_dir/$binary_name" .; then
+            echo "⚠️  GUI build failed for ${target_os}/${target_arch}"
+            return 1
+        fi
     fi
 
     GUI_TARGETS+=("${target_os}/${target_arch}")
@@ -160,8 +170,3 @@ echo ""
 echo "📁 Output directory: builds/"
 echo "🏷️  Version: v$VERSION"
 echo "📅 Build date: $BUILD_DATE $BUILD_TIME"
-
-# Restore backup of version file
-if [ -f "$VERSION_FILE.bak" ]; then
-    mv "$VERSION_FILE.bak" "$VERSION_FILE"
-fi

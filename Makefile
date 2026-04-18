@@ -8,6 +8,7 @@
 BINARY_NAME=go24k
 GO_FILES=$(shell find . -name '*.go' -type f -not -path './vendor/*')
 BUILD_DIR=builds
+GOLANGCI_LINT?=$(shell command -v golangci-lint 2>/dev/null || echo $(HOME)/go/bin/golangci-lint)
 
 # Comando padrão
 all: clean lint test build
@@ -53,12 +54,20 @@ coverage:
 # Análise estática
 lint:
 	@echo "🔍 Executando golangci-lint..."
-	~/go/bin/golangci-lint run --timeout 2m
+	@if [ ! -x "$(GOLANGCI_LINT)" ]; then \
+		echo "❌ golangci-lint não encontrado. Use: make dev-deps"; \
+		exit 1; \
+	fi
+	$(GOLANGCI_LINT) run --timeout 2m
 
 # Análise com golangci-lint moderno (modo verboso)
 lint-modern:
 	@echo "🔍 Executando golangci-lint moderno..."
-	~/go/bin/golangci-lint run --timeout 2m --verbose
+	@if [ ! -x "$(GOLANGCI_LINT)" ]; then \
+		echo "❌ golangci-lint não encontrado. Use: make dev-deps"; \
+		exit 1; \
+	fi
+	$(GOLANGCI_LINT) run --timeout 2m --verbose
 	@echo "✅ Análise moderna concluída"
 
 # Instalar dependências de desenvolvimento
