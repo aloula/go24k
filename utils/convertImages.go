@@ -340,13 +340,8 @@ func FormatCameraInfoOverlay(info *CameraInfo, fontSize, imageIndex int) string 
 		return ""
 	}
 
-	// Start with camera make and model
-	var cameraName string
-	if info.Make != "" && info.Model != "" {
-		cameraName = fmt.Sprintf("%s - %s", info.Make, info.Model)
-	} else if info.Model != "" {
-		cameraName = info.Model
-	}
+	// Show only camera model in overlay (omit manufacturer).
+	cameraName := info.Model
 
 	// If no camera info, return empty
 	if cameraName == "" {

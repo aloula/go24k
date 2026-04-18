@@ -26,7 +26,7 @@ func main() {
 	effectsMode := flag.String("effects", "disabled", "Image motion effects: disabled, low, medium, or high")
 	debug := flag.Bool("debug", false, "Show environment detection and optimization info")
 	exifOverlay := flag.Bool("exif-overlay", false, "Add camera info overlay to video (bottom center)")
-	overlayFontSize := flag.Int("overlay-font-size", 36, "Font size for EXIF overlay (default: 36)")
+	overlayFontSize := flag.Int("overlay-font-size", 48, "Font size for EXIF overlay (default: 48)")
 	version := flag.Bool("version", false, "Show version information")
 	versionShort := flag.Bool("v", false, "Show version information (short)")
 	help := flag.Bool("help", false, "Show this help message")

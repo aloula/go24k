@@ -7,8 +7,8 @@ import (
 
 // Version information - update these for each release
 const (
-	Version     = "2.3"
-	BuildDate   = "2026-04-15"
+	Version     = "2.4"
+	BuildDate   = "2026-04-18"
 	Description = "4K Video Creator with Hardware Acceleration & EXIF Overlay"
 )
 

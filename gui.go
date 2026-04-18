@@ -196,7 +196,7 @@ func launchGUI() {
 	transitionEntry := widget.NewEntry()
 	transitionEntry.SetText("1")
 	fontSizeEntry := widget.NewEntry()
-	fontSizeEntry.SetText("36")
+	fontSizeEntry.SetText("48")
 
 	fpsSelect := widget.NewSelect([]string{"auto", "30", "60"}, nil)
 	fpsSelect.SetSelected("auto")
@@ -299,6 +299,28 @@ func launchGUI() {
 		scrollEntryToEnd(logOutput, "")
 
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					dialog.ShowError(fmt.Errorf("Unexpected error: %v", r), w)
+					stopButton.Disable()
+					stopButton.Hide()
+					setControlsEnabled(true,
+						browseButton,
+						fitAudioCheck,
+						includeVideosCheck,
+						orderModeSelect,
+						effectsSelect,
+						fullHDCheck,
+						exifOverlayCheck,
+						durationEntry,
+						transitionEntry,
+						fontSizeEntry,
+						fpsSelect,
+						runButton,
+					)
+					updateVideoAudioControl()
+				}
+			}()
 			startedAt := time.Now()
 			stopElapsedUpdates := make(chan struct{})
 			go func() {

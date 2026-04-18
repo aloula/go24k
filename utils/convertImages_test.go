@@ -715,13 +715,13 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 		{
 			name:     "Nil info",
 			info:     nil,
-			fontSize: 36,
+			fontSize: 48,
 			expected: "",
 		},
 		{
 			name:     "Empty info",
 			info:     &CameraInfo{},
-			fontSize: 36,
+			fontSize: 48,
 			expected: "",
 		},
 		{
@@ -736,8 +736,8 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				FNumber:      "f/2.8",
 				DateTaken:    "15.08.2024",
 			},
-			fontSize: 36,
-			expected: ",drawtext=text=Canon\\ -\\ EOS\\ R5\\ -\\ 50mm\\ -\\ f\\/2.8\\ -\\ 1\\/125s\\ -\\ ISO\\ 400\\ -\\ 15.08.2024:fontsize=36:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
+			fontSize: 48,
+			expected: ",drawtext=text=EOS\\ R5\\ -\\ 50mm\\ -\\ f\\/2.8\\ -\\ 1\\/125s\\ -\\ ISO\\ 400\\ -\\ 15.08.2024:fontsize=48:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
 			name: "Camera with large font",
@@ -750,7 +750,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken:   "22.06.2024",
 			},
 			fontSize: 48,
-			expected: ",drawtext=text=Sony\\ -\\ A7R\\ IV\\ -\\ 85mm\\ -\\ f\\/1.4\\ -\\ ISO\\ 800\\ -\\ 22.06.2024:fontsize=48:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=A7R\\ IV\\ -\\ 85mm\\ -\\ f\\/1.4\\ -\\ ISO\\ 800\\ -\\ 22.06.2024:fontsize=48:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
 			name: "Basic camera info",
@@ -760,7 +760,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken: "10.03.2024",
 			},
 			fontSize: 24,
-			expected: ",drawtext=text=Nikon\\ -\\ D850\\ -\\ 10.03.2024:fontsize=24:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=D850\\ -\\ 10.03.2024:fontsize=24:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 		{
 			name: "Camera with partial info",
@@ -772,7 +772,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 				DateTaken:   "10.03.2024",
 			},
 			fontSize: 32,
-			expected: ",drawtext=text=Fujifilm\\ -\\ X-T4\\ -\\ 35mm\\ -\\ f\\/2.0\\ -\\ 10.03.2024:fontsize=32:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
+			expected: ",drawtext=text=X-T4\\ -\\ 35mm\\ -\\ f\\/2.0\\ -\\ 10.03.2024:fontsize=32:fontcolor=white:x=(w-tw)/2:y=h-th-40:box=1:boxcolor=black@0.5:boxborderw=5",
 		},
 	}
 
@@ -787,7 +787,7 @@ func TestFormatCameraInfoOverlay(t *testing.T) {
 
 	t.Run("FullHD uses higher footer by 10px", func(t *testing.T) {
 		activeResolution = resolutionFullHD
-		result := FormatCameraInfoOverlay(&CameraInfo{Make: "Canon", Model: "R6", DateTaken: "01.01.2024"}, 36, 0)
+		result := FormatCameraInfoOverlay(&CameraInfo{Make: "Canon", Model: "R6", DateTaken: "01.01.2024"}, 48, 0)
 		if !strings.Contains(result, "y=h-th-30") {
 			t.Errorf("Expected FullHD overlay position y=h-th-30, got %q", result)
 		}

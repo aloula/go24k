@@ -70,7 +70,7 @@ Saída padrão:
 - -keep-video-audio: preserva áudio dos vídeos de entrada.
 - -order <metadata|filename|random>: define o modo de ordenação da timeline.
 - -exif-overlay: adiciona legenda com dados da câmera.
-- -overlay-font-size <pixels>: tamanho da fonte do overlay. Padrão: 36.
+- -overlay-font-size <pixels>: tamanho da fonte do overlay. Padrão: 48.
 - --debug: mostra detecção de hardware e parâmetros do FFmpeg.
 
 ## Exemplos
@@ -112,12 +112,12 @@ Saída padrão:
 
 ## EXIF overlay
 
-Quando -exif-overlay está ativo, o programa tenta exibir fabricante, câmera, lente, distância focal, abertura, obturador, ISO e data de cada foto. Se algum campo não existir, ele simplesmente omite o que faltar.
+Quando -exif-overlay está ativo, o programa tenta exibir câmera (modelo), lente, distância focal, abertura, obturador, ISO e data de cada foto. Se algum campo não existir, ele simplesmente omite o que faltar.
 
 Exemplo:
 
 ```text
-Canon - EOS R5 - 50mm - f/2.8 - 1/125s - ISO 400 - 15/08/2024
+Nikon Z8 - 50mm - f/2.8 - 1/125s - ISO 400 - 15/08/2024
 ```
 
 ## Build e desenvolvimento
